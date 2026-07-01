@@ -225,9 +225,18 @@ class ChatMessage {
 
 class VisitNote {
   final String id;
+  final String patientId;
   final String note;
   final String timestamp;
-  VisitNote({required this.id, required this.note, required this.timestamp});
+  final String from;
+
+  VisitNote({
+    required this.id,
+    required this.patientId,
+    required this.note,
+    required this.timestamp,
+    required this.from,
+  });
 }
 
 class Reminder {

@@ -274,6 +274,18 @@ class AppState extends ChangeNotifier {
 
   String get patientFirstName => caregiverFirstName;
 
+  String get linkedCaregiverPatientId {
+    if (role != Role.caregiver || currentAccountEmail.isEmpty) return '';
+    try {
+      return storedAccounts
+              .firstWhere((account) => account.email == currentAccountEmail)
+              .linkedPatientId ??
+          '';
+    } catch (_) {
+      return '';
+    }
+  }
+
   List<AppointmentSlot> get publishedAvailableSlots => slots
       .where((s) => s.status == SlotStatus.available && s.published)
       .toList();
@@ -293,6 +305,9 @@ class AppState extends ChangeNotifier {
       notifications.where((n) => n.role == r).toList();
   int unreadCountFor(Role r) =>
       notificationsFor(r).where((n) => !n.read).length;
+
+  List<VisitNote> visitNotesForPatient(String patientId) =>
+      visitNotes.where((note) => note.patientId == patientId).toList();
 
   String get _todayKey => DateFormat('yyyy-MM-dd').format(DateTime.now());
 
@@ -464,12 +479,21 @@ class AppState extends ChangeNotifier {
   }
 
   void addVisitNote(String text) {
+    final patientId = linkedCaregiverPatientId.isNotEmpty
+        ? linkedCaregiverPatientId
+        : selectedPatientId;
+    if (patientId.isEmpty) return;
     visitNotes.add(VisitNote(
       id: newId(),
+      patientId: patientId,
       note: text,
       timestamp:
           '${DateFormat('MMM d, y').format(DateTime.now())} - ${nowTime()}',
+      from: session?.name ?? 'Caregiver',
     ));
+    pushNotification(
+        '${caregiverFirstName.isEmpty ? "Caregiver" : caregiverFirstName} published a visit note.',
+        Role.doctor);
     notifyListeners();
   }
 

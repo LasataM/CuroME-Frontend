@@ -6,7 +6,7 @@ import 'package:curome/models/models.dart';
 import 'package:curome/widgets/common_widgets.dart';
 import 'package:curome/widgets/mood_chart.dart';
 
-enum _DoctorTab { home, appointments, mood, suggestions, messages }
+enum _DoctorTab { home, appointments, mood, suggestions, visitNotes, messages }
 
 enum _DoctorMsgInbox { patient, caregiver }
 
@@ -100,6 +100,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
         return _moodTab(state);
       case _DoctorTab.suggestions:
         return _suggestionsTab(state);
+      case _DoctorTab.visitNotes:
+        return _visitNotesTab(state);
       case _DoctorTab.messages:
         return _messagesTab(state);
     }
@@ -111,6 +113,7 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
       (_DoctorTab.appointments, 'Slots', Icons.calendar_month),
       (_DoctorTab.mood, 'Mood', Icons.trending_up),
       (_DoctorTab.suggestions, 'Suggest', Icons.medication),
+      (_DoctorTab.visitNotes, 'Notes', Icons.description),
       (_DoctorTab.messages, 'Messages', Icons.message),
     ];
     return Container(
@@ -134,14 +137,17 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                   children: [
                     Icon(t.$3,
                         size: 22,
-                        color: selected ? AppColors.indigo : Colors.grey.shade400),
+                        color:
+                            selected ? AppColors.indigo : Colors.grey.shade400),
                     const SizedBox(height: 2),
                     Text(t.$2,
                         style: TextStyle(
                             fontSize: 10,
-                            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                            color:
-                                selected ? AppColors.indigo : Colors.grey.shade400)),
+                            fontWeight:
+                                selected ? FontWeight.bold : FontWeight.normal,
+                            color: selected
+                                ? AppColors.indigo
+                                : Colors.grey.shade400)),
                   ],
                 ),
               ),
@@ -170,7 +176,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text('Good morning,',
-                          style: TextStyle(color: Colors.white70, fontSize: 13)),
+                          style:
+                              TextStyle(color: Colors.white70, fontSize: 13)),
                       Text(state.doctorDisplayName,
                           style: const TextStyle(
                               color: Colors.white,
@@ -178,7 +185,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                               fontWeight: FontWeight.w900)),
                       const SizedBox(height: 4),
                       Text(formatNow(),
-                          style: const TextStyle(color: Colors.white60, fontSize: 11)),
+                          style: const TextStyle(
+                              color: Colors.white60, fontSize: 11)),
                     ],
                   ),
                 ),
@@ -190,7 +198,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                 IconButton(
                   onPressed: () {
                     state.logout();
-                    Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false);
+                    Navigator.pushNamedAndRemoveUntil(
+                        context, '/login', (r) => false);
                   },
                   icon: const Icon(Icons.logout, color: Colors.white, size: 20),
                 ),
@@ -212,12 +221,23 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
               mainAxisSpacing: 12,
               childAspectRatio: 1.5,
               children: [
-                _quickCard('Appointments', Icons.calendar_month, AppColors.indigo,
+                _quickCard(
+                    'Appointments',
+                    Icons.calendar_month,
+                    AppColors.indigo,
                     () => setState(() => _tab = _DoctorTab.appointments)),
                 _quickCard('Mood Trends', Icons.trending_up, AppColors.purple,
                     () => setState(() => _tab = _DoctorTab.mood)),
-                _quickCard('Suggestions', Icons.medication, Colors.green.shade700,
+                _quickCard(
+                    'Suggestions',
+                    Icons.medication,
+                    Colors.green.shade700,
                     () => setState(() => _tab = _DoctorTab.suggestions)),
+                _quickCard(
+                    'Visit Notes',
+                    Icons.description,
+                    Colors.amber.shade700,
+                    () => setState(() => _tab = _DoctorTab.visitNotes)),
                 _quickCard('Messages', Icons.message, Colors.blue.shade700,
                     () => setState(() => _tab = _DoctorTab.messages)),
               ],
@@ -226,10 +246,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
           if (state.alertTriggered && state.selectedPatient != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _alertBanner(
-                  'Mood Alert — ${state.selectedPatient!.name}',
-                  'Patient recorded 3+ consecutive sad check-ins.',
-                  Colors.red),
+              child: _alertBanner('Mood Alert — ${state.selectedPatient!.name}',
+                  'Patient recorded 3+ consecutive sad check-ins.', Colors.red),
             ),
           if (state.awaitingApprovalSlots.isNotEmpty)
             Padding(
@@ -238,7 +256,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: const Color(0xFFEEF2FF),
-                  border: Border.all(color: AppColors.indigo.withValues(alpha: 0.3)),
+                  border: Border.all(
+                      color: AppColors.indigo.withValues(alpha: 0.3)),
                   borderRadius: BorderRadius.circular(AppSizes.radiusMd),
                 ),
                 child: Row(
@@ -276,7 +295,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
     );
   }
 
-  Widget _quickCard(String label, IconData icon, Color color, VoidCallback onTap) {
+  Widget _quickCard(
+      String label, IconData icon, Color color, VoidCallback onTap) {
     return Material(
       color: color.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(AppSizes.radiusMd),
@@ -335,8 +355,10 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
 
   // ── APPOINTMENTS ──
   Widget _appointmentsTab(AppState state) {
-    final available = state.slots.where((s) => s.status == SlotStatus.available).toList();
-    final cancelled = state.slots.where((s) => s.status == SlotStatus.cancelled).toList();
+    final available =
+        state.slots.where((s) => s.status == SlotStatus.available).toList();
+    final cancelled =
+        state.slots.where((s) => s.status == SlotStatus.cancelled).toList();
 
     return Column(
       children: [
@@ -372,7 +394,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => setState(() => _decliningSlotId = s.id),
+                        onPressed: () =>
+                            setState(() => _decliningSlotId = s.id),
                         style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.red,
                             side: const BorderSide(color: Colors.red)),
@@ -400,7 +423,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                         style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.red,
                             side: const BorderSide(color: Colors.red)),
-                        onPressed: () => setState(() => _cancellingSlotId = s.id),
+                        onPressed: () =>
+                            setState(() => _cancellingSlotId = s.id),
                         child: const Text('Cancel'),
                       ),
                     ),
@@ -448,12 +472,15 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Add Appointment Slot',
-              style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.indigo)),
+              style: TextStyle(
+                  fontWeight: FontWeight.bold, color: AppColors.indigo)),
           const SizedBox(height: 10),
           TextField(
             controller: _slotTitleCtrl,
             decoration: const InputDecoration(
-                hintText: 'Title (optional)', filled: true, fillColor: Colors.white),
+                hintText: 'Title (optional)',
+                filled: true,
+                fillColor: Colors.white),
           ),
           const SizedBox(height: 8),
           Row(
@@ -474,7 +501,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                       });
                     }
                   },
-                  child: Text(_slotDate == null ? 'Select date' : _fmtDate(_slotDate!)),
+                  child: Text(
+                      _slotDate == null ? 'Select date' : _fmtDate(_slotDate!)),
                 ),
               ),
               const SizedBox(width: 8),
@@ -490,7 +518,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                       });
                     }
                   },
-                  child: Text(_slotTime == null ? 'Select time' : _fmtTime(_slotTime!)),
+                  child: Text(
+                      _slotTime == null ? 'Select time' : _fmtTime(_slotTime!)),
                 ),
               ),
             ],
@@ -523,7 +552,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
           const SizedBox(height: 6),
           Wrap(
             spacing: 6,
-            children: ['one-time', 'weekly', 'fortnightly', 'monthly'].map((opt) {
+            children:
+                ['one-time', 'weekly', 'fortnightly', 'monthly'].map((opt) {
               final sel = _slotFollowUp == opt;
               return ChoiceChip(
                 label: Text(opt == 'one-time'
@@ -532,7 +562,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                 selected: sel,
                 onSelected: (_) => setState(() => _slotFollowUp = opt),
                 selectedColor: AppColors.indigo,
-                labelStyle: TextStyle(color: sel ? Colors.white : Colors.black87),
+                labelStyle:
+                    TextStyle(color: sel ? Colors.white : Colors.black87),
               );
             }).toList(),
           ),
@@ -582,8 +613,10 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                   _slotConflict = false;
                 });
               },
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.indigo),
-              child: const Text('Create Slot', style: TextStyle(color: Colors.white)),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: AppColors.indigo),
+              child: const Text('Create Slot',
+                  style: TextStyle(color: Colors.white)),
             ),
           ),
         ],
@@ -599,7 +632,9 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -678,7 +713,9 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
       ),
       child: const Text('View Log',
           style: TextStyle(
-              fontSize: 11, color: AppColors.indigo, decoration: TextDecoration.underline)),
+              fontSize: 11,
+              color: AppColors.indigo,
+              decoration: TextDecoration.underline)),
     );
   }
 
@@ -718,21 +755,26 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                                 style: const TextStyle(
                                     fontWeight: FontWeight.bold, fontSize: 14)),
                             const Text('7-day mood history',
-                                style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.grey)),
                           ],
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
                     MoodAreaChart(
-                        data: data, label: 'Mood Score (1 = Very Sad · 5 = Very Happy)'),
+                        data: data,
+                        label: 'Mood Score (1 = Very Sad · 5 = Very Happy)'),
                     const SizedBox(height: 16),
                     const Text('CHECK-IN HISTORY',
                         style: TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey)),
                     const SizedBox(height: 8),
                     if (data.isEmpty)
-                      const EmptyState(icon: Icons.trending_up, text: 'No mood data yet.')
+                      const EmptyState(
+                          icon: Icons.trending_up, text: 'No mood data yet.')
                     else
                       for (final entry in data.reversed.take(7))
                         Container(
@@ -740,10 +782,12 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(AppSizes.radiusSm),
+                            borderRadius:
+                                BorderRadius.circular(AppSizes.radiusSm),
                             boxShadow: [
                               BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.03), blurRadius: 4),
+                                  color: Colors.black.withValues(alpha: 0.03),
+                                  blurRadius: 4),
                             ],
                           ),
                           child: Row(
@@ -755,11 +799,12 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(entry.label,
-                                        style:
-                                            const TextStyle(fontWeight: FontWeight.w600)),
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w600)),
                                     Text(entry.date,
                                         style: TextStyle(
-                                            fontSize: 11, color: Colors.grey.shade400)),
+                                            fontSize: 11,
+                                            color: Colors.grey.shade400)),
                                   ],
                                 ),
                               ),
@@ -784,8 +829,9 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
   // ── SUGGESTIONS ──
   Widget _suggestionsTab(AppState state) {
     final patient = state.selectedPatient;
-    final current =
-        state.suggestions.where((s) => s.patientId == state.selectedPatientId).toList();
+    final current = state.suggestions
+        .where((s) => s.patientId == state.selectedPatientId)
+        .toList();
 
     return Column(
       children: [
@@ -822,8 +868,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                                     fontWeight: FontWeight.bold, fontSize: 14)),
                             Text(
                                 '${current.length} active recommendation${current.length != 1 ? "s" : ""}',
-                                style:
-                                    const TextStyle(fontSize: 11, color: Colors.grey)),
+                                style: const TextStyle(
+                                    fontSize: 11, color: Colors.grey)),
                           ],
                         ),
                       ],
@@ -865,7 +911,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                 selected: sel,
                 onSelected: (_) => setState(() => _suggType = t),
                 selectedColor: Colors.green.shade600,
-                labelStyle: TextStyle(color: sel ? Colors.white : Colors.black87),
+                labelStyle:
+                    TextStyle(color: sel ? Colors.white : Colors.black87),
               );
             }).toList(),
           ),
@@ -879,7 +926,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                 selected: sel,
                 onSelected: (_) => setState(() => _suggPriority = p),
                 selectedColor: AppColors.indigo,
-                labelStyle: TextStyle(color: sel ? Colors.white : Colors.black87),
+                labelStyle:
+                    TextStyle(color: sel ? Colors.white : Colors.black87),
               );
             }).toList(),
           ),
@@ -888,7 +936,9 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
             controller: _suggTextCtrl,
             maxLines: 2,
             decoration: const InputDecoration(
-                hintText: 'Recommendation…', filled: true, fillColor: Colors.white),
+                hintText: 'Recommendation…',
+                filled: true,
+                fillColor: Colors.white),
           ),
           const SizedBox(height: 8),
           TextField(
@@ -922,7 +972,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                   _suggRationaleCtrl.clear();
                 });
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade600),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green.shade600),
               child: const Text('Send to Patient & Caregiver',
                   style: TextStyle(color: Colors.white)),
             ),
@@ -952,7 +1003,9 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                         ? Colors.amber
                         : Colors.green,
                 width: 4)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4)],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4)
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -961,38 +1014,134 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
             children: [
               Icon(typeIcon, size: 16, color: Colors.grey.shade600),
               const SizedBox(width: 6),
-              Text(s.type, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+              Text(s.type,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
               const Spacer(),
               PriorityBadge(priority: s.priority),
             ],
           ),
           const SizedBox(height: 6),
-          Text(s.text, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          Text(s.text,
+              style:
+                  const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
           const SizedBox(height: 2),
-          Text(s.rationale, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+          Text(s.rationale,
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
         ],
       ),
     );
   }
 
   // ── MESSAGES ──
+  // ── VISIT NOTES ──
+  Widget _visitNotesTab(AppState state) {
+    final patient = state.selectedPatient;
+    final notes =
+        state.visitNotesForPatient(state.selectedPatientId).reversed.toList();
+
+    return Column(
+      children: [
+        PageHeader(
+          title: 'Visit Notes',
+          onBack: () => setState(() => _tab = _DoctorTab.home),
+        ),
+        PatientSelector(
+          patients: state.patients,
+          selectedId: state.selectedPatientId,
+          onSelect: (id) => setState(() => state.selectedPatientId = id),
+        ),
+        Expanded(
+          child: patient == null
+              ? const EmptyState(icon: Icons.person, text: 'No patients yet.')
+              : ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    Row(
+                      children: [
+                        PatientAvatar(patient: patient, size: 40),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(patient.name,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 14)),
+                            Text(
+                                '${notes.length} visit note${notes.length != 1 ? "s" : ""}',
+                                style: const TextStyle(
+                                    fontSize: 11, color: Colors.grey)),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (notes.isEmpty)
+                      const EmptyState(
+                          icon: Icons.description, text: 'No visit notes yet.')
+                    else
+                      for (final note in notes) _visitNoteCard(note),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _visitNoteCard(VisitNote note) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+        border:
+            Border(left: BorderSide(color: Colors.amber.shade700, width: 4)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4)
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.description, size: 16, color: Colors.amber.shade700),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(note.from,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 12)),
+              ),
+              Text(note.timestamp,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(note.note, style: const TextStyle(fontSize: 13, height: 1.35)),
+        ],
+      ),
+    );
+  }
+
   Widget _messagesTab(AppState state) {
     if (!_inThread) {
       return Column(
         children: [
-          PageHeader(title: 'Messages', onBack: () => setState(() => _tab = _DoctorTab.home)),
+          PageHeader(
+              title: 'Messages',
+              onBack: () => setState(() => _tab = _DoctorTab.home)),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
                 Expanded(
-                  child: _inboxTabButton('Patient Inbox', _DoctorMsgInbox.patient,
-                      AppColors.indigo),
+                  child: _inboxTabButton('Patient Inbox',
+                      _DoctorMsgInbox.patient, AppColors.indigo),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: _inboxTabButton('Caregiver Inbox', _DoctorMsgInbox.caregiver,
-                      AppColors.teal),
+                  child: _inboxTabButton('Caregiver Inbox',
+                      _DoctorMsgInbox.caregiver, AppColors.teal),
                 ),
               ],
             ),
@@ -1036,18 +1185,27 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
     }
     return ListView.separated(
       itemCount: state.patients.length,
-      separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey.shade100),
+      separatorBuilder: (_, __) =>
+          Divider(height: 1, color: Colors.grey.shade100),
       itemBuilder: (_, i) {
         final p = state.patients[i];
         final msgs = state.patientMessages[p.id] ?? [];
         final last = msgs.isNotEmpty ? msgs.last : null;
         return ListTile(
           leading: PatientAvatar(patient: p, size: 44),
-          title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+          title:
+              Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
           subtitle: Text(
-              last == null ? 'No messages yet' : (last.role == Role.doctor ? 'You: ${last.text}' : last.text),
-              maxLines: 1, overflow: TextOverflow.ellipsis),
-          trailing: last != null ? Text(last.time, style: const TextStyle(fontSize: 11)) : null,
+              last == null
+                  ? 'No messages yet'
+                  : (last.role == Role.doctor
+                      ? 'You: ${last.text}'
+                      : last.text),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+          trailing: last != null
+              ? Text(last.time, style: const TextStyle(fontSize: 11))
+              : null,
           onTap: () => setState(() {
             state.selectedPatientId = p.id;
             _inThread = true;
@@ -1063,7 +1221,8 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
     }
     return ListView.separated(
       itemCount: state.caregiverContacts.length,
-      separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey.shade100),
+      separatorBuilder: (_, __) =>
+          Divider(height: 1, color: Colors.grey.shade100),
       itemBuilder: (_, i) {
         final cg = state.caregiverContacts[i];
         final thread = state.docCgThreads[cg.id] ?? [];
@@ -1074,10 +1233,13 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
             child: Text(cg.initials,
                 style: const TextStyle(color: Colors.white, fontSize: 12)),
           ),
-          title: Text(cg.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+          title: Text(cg.name,
+              style: const TextStyle(fontWeight: FontWeight.w600)),
           subtitle: Text('Caregiver · ${cg.patientName}',
               style: const TextStyle(fontSize: 11)),
-          trailing: last != null ? Text(last.time, style: const TextStyle(fontSize: 11)) : null,
+          trailing: last != null
+              ? Text(last.time, style: const TextStyle(fontSize: 11))
+              : null,
           onTap: () => setState(() {
             _selectedCgId = cg.id;
             _inThread = true;
@@ -1124,11 +1286,10 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
   }
 
   Widget _caregiverThread(AppState state) {
-    final cg = state.caregiverContacts
-        .where((c) => c.id == _selectedCgId)
-        .isEmpty
-        ? null
-        : state.caregiverContacts.firstWhere((c) => c.id == _selectedCgId);
+    final cg =
+        state.caregiverContacts.where((c) => c.id == _selectedCgId).isEmpty
+            ? null
+            : state.caregiverContacts.firstWhere((c) => c.id == _selectedCgId);
     final thread = state.docCgThreads[_selectedCgId] ?? [];
     return Column(
       children: [

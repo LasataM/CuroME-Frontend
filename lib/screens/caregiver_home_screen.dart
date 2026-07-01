@@ -817,6 +817,9 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen> {
 
   // ── VISIT NOTES ──
   Widget _visitTab(AppState state) {
+    final patientId = state.linkedCaregiverPatientId;
+    final notes = state.visitNotesForPatient(patientId).reversed.toList();
+
     return Column(
       children: [
         PageHeader(
@@ -874,10 +877,10 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen> {
                       fontWeight: FontWeight.bold,
                       color: Colors.grey)),
               const SizedBox(height: 8),
-              if (state.visitNotes.isEmpty)
+              if (notes.isEmpty)
                 const EmptyState(icon: Icons.description, text: 'No notes yet.')
               else
-                for (final n in state.visitNotes.reversed)
+                for (final n in notes)
                   Container(
                     margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.all(14),
