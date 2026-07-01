@@ -311,8 +311,32 @@ class AppState extends ChangeNotifier {
   int unreadCountFor(Role r) =>
       notificationsFor(r).where((n) => !n.read).length;
 
+  List<PatientSuggestion> suggestionsForPatient(String patientId) =>
+      suggestions.where((s) => s.patientId == patientId).toList();
+
+  List<PatientSuggestion> get caregiverSuggestions {
+    final patientId = linkedCaregiverPatientId;
+    if (patientId.isEmpty) return const [];
+    return suggestionsForPatient(patientId);
+  }
+
   List<VisitNote> visitNotesForPatient(String patientId) =>
       visitNotes.where((note) => note.patientId == patientId).toList();
+
+  String cancellationSourceLabel(AppointmentSlot slot) {
+    if (slot.status != SlotStatus.cancelled) return '';
+    final hasCaregiverCancellation = slot.log.any((entry) =>
+        entry.role == 'caregiver' &&
+        entry.action.toLowerCase().contains('cancell'));
+    if (hasCaregiverCancellation) return 'Cancelled by caregiver';
+
+    final hasDoctorCancellation = slot.log.any((entry) =>
+        entry.role == 'doctor' &&
+        entry.action.toLowerCase().contains('cancell'));
+    if (hasDoctorCancellation) return 'Cancelled by doctor';
+
+    return 'Cancelled';
+  }
 
   String get _todayKey => DateFormat('yyyy-MM-dd').format(DateTime.now());
 

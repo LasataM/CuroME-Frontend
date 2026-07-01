@@ -6,7 +6,15 @@ import 'package:curome/models/models.dart';
 import 'package:curome/widgets/common_widgets.dart';
 import 'package:curome/widgets/mood_chart.dart';
 
-enum _CgTab { home, appointments, mood, visit, reminders, messages }
+enum _CgTab {
+  home,
+  appointments,
+  suggestions,
+  mood,
+  visit,
+  reminders,
+  messages
+}
 
 enum _CgMsgTab { doctor, patient }
 
@@ -93,6 +101,8 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen> {
         return _homeTab(state);
       case _CgTab.appointments:
         return _appointmentsTab(state);
+      case _CgTab.suggestions:
+        return _suggestionsTab(state);
       case _CgTab.mood:
         return _moodTab(state);
       case _CgTab.visit:
@@ -108,6 +118,7 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen> {
     final tabs = [
       (_CgTab.home, 'Home', Icons.home),
       (_CgTab.appointments, 'Appts', Icons.calendar_month),
+      (_CgTab.suggestions, 'Suggest', Icons.assignment),
       (_CgTab.mood, 'Mood', Icons.trending_up),
       (_CgTab.reminders, 'Meds', Icons.medication),
       (_CgTab.visit, 'Visit', Icons.description),
@@ -292,6 +303,11 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen> {
                         Icons.calendar_month,
                         AppColors.indigo,
                         () => setState(() => _tab = _CgTab.appointments)),
+                    _quickCard(
+                        'Suggestions',
+                        Icons.assignment,
+                        Colors.green.shade700,
+                        () => setState(() => _tab = _CgTab.suggestions)),
                     _quickCard(
                         'Mood Check-ins',
                         Icons.trending_up,
@@ -507,7 +523,7 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen> {
               if (state.cancelledSlots.isNotEmpty) ...[
                 _sectionLabel('Cancelled', Colors.red.shade400),
                 for (final s in state.cancelledSlots)
-                  Opacity(opacity: 0.75, child: _slotCard(s)),
+                  Opacity(opacity: 0.75, child: _slotCard(s, state: state)),
               ],
             ],
           ),
@@ -528,7 +544,9 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen> {
                 letterSpacing: 1)),
       );
 
-  Widget _slotCard(AppointmentSlot s, {List<Widget>? children}) {
+  Widget _slotCard(AppointmentSlot s,
+      {List<Widget>? children, AppState? state}) {
+    final cancellationSource = state?.cancellationSourceLabel(s) ?? '';
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -558,6 +576,12 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen> {
                     if (s.escalated)
                       const Text('Cancellation sent to doctor',
                           style: TextStyle(fontSize: 12, color: Colors.red)),
+                    if (cancellationSource.isNotEmpty)
+                      Text(cancellationSource,
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.red.shade600)),
                     if (s.cancelReason != null)
                       Text('Reason: ${s.cancelReason}',
                           style: TextStyle(
@@ -572,6 +596,124 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen> {
             const SizedBox(height: 10),
             ...children,
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _suggestionsTab(AppState state) {
+    final suggestions = state.caregiverSuggestions.reversed.toList();
+    final patientName = state.linkedPatientName.isEmpty
+        ? 'your patient'
+        : state.linkedPatientName;
+
+    return Column(
+      children: [
+        PageHeader(
+            title: 'Suggestions',
+            onBack: () => setState(() => _tab = _CgTab.home)),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+                  border: Border.all(color: Colors.green.shade100),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.assignment, color: Colors.green.shade700),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Doctor Suggestions for $patientName',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green.shade800)),
+                          Text(
+                              '${suggestions.length} recommendation${suggestions.length == 1 ? "" : "s"} available',
+                              style: TextStyle(
+                                  fontSize: 11, color: Colors.green.shade700)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (suggestions.isEmpty)
+                const EmptyState(
+                    icon: Icons.assignment,
+                    text: 'No doctor suggestions for this patient yet.')
+              else
+                for (final suggestion in suggestions)
+                  _caregiverSuggestionCard(suggestion),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _caregiverSuggestionCard(PatientSuggestion suggestion) {
+    final typeIcon = suggestion.type == 'activity'
+        ? Icons.directions_walk
+        : suggestion.type == 'followup'
+            ? Icons.calendar_month
+            : Icons.medication;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+        border: Border(
+          left: BorderSide(
+            color: suggestion.priority == Priority.high
+                ? Colors.red
+                : suggestion.priority == Priority.medium
+                    ? Colors.amber
+                    : Colors.green,
+            width: 4,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(typeIcon, size: 16, color: Colors.grey.shade600),
+              const SizedBox(width: 6),
+              Text(suggestion.type,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+              const Spacer(),
+              PriorityBadge(priority: suggestion.priority),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(suggestion.text,
+              style:
+                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          const SizedBox(height: 4),
+          Text(suggestion.rationale,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+          const SizedBox(height: 8),
+          Text('From ${suggestion.from}',
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.green.shade700)),
         ],
       ),
     );

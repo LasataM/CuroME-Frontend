@@ -666,6 +666,7 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
       {List<Widget>? actions,
       bool trailingPublish = false,
       String requestLabel = 'Requested by'}) {
+    final cancellationSource = state.cancellationSourceLabel(s);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -696,6 +697,12 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                       Text('$requestLabel: ${s.caregiverId}',
                           style: const TextStyle(
                               fontSize: 12, color: AppColors.indigo)),
+                    if (cancellationSource.isNotEmpty)
+                      Text(cancellationSource,
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.red.shade600)),
                     if (s.cancelReason != null)
                       Text('Reason: ${s.cancelReason}',
                           style: TextStyle(
