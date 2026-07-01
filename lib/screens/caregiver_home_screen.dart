@@ -391,6 +391,11 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen> {
             s.status == SlotStatus.pendingDoctor &&
             s.caregiverId == state.caregiverFirstName)
         .toList();
+    final myCancellationRequests = state.slots
+        .where((s) =>
+            s.status == SlotStatus.pendingCancellation &&
+            s.caregiverId == state.caregiverFirstName)
+        .toList();
 
     return Column(
       children: [
@@ -474,6 +479,11 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen> {
                 _sectionLabel('Pending Doctor Approval', AppColors.indigo),
                 for (final s in myPending) _slotCard(s),
               ],
+              if (myCancellationRequests.isNotEmpty) ...[
+                _sectionLabel(
+                    'Cancellation Approval Requests', Colors.orange.shade700),
+                for (final s in myCancellationRequests) _slotCard(s),
+              ],
               if (state.confirmedSlots.isNotEmpty) ...[
                 _sectionLabel('Confirmed', Colors.green.shade700),
                 for (final s in state.confirmedSlots)
@@ -493,6 +503,11 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen> {
                       ],
                     ),
                   ]),
+              ],
+              if (state.cancelledSlots.isNotEmpty) ...[
+                _sectionLabel('Cancelled', Colors.red.shade400),
+                for (final s in state.cancelledSlots)
+                  Opacity(opacity: 0.75, child: _slotCard(s)),
               ],
             ],
           ),
@@ -543,6 +558,10 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen> {
                     if (s.escalated)
                       const Text('Cancellation sent to doctor',
                           style: TextStyle(fontSize: 12, color: Colors.red)),
+                    if (s.cancelReason != null)
+                      Text('Reason: ${s.cancelReason}',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.red.shade400)),
                   ],
                 ),
               ),

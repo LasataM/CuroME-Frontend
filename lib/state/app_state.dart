@@ -289,10 +289,15 @@ class AppState extends ChangeNotifier {
   List<AppointmentSlot> get publishedAvailableSlots => slots
       .where((s) => s.status == SlotStatus.available && s.published)
       .toList();
-  List<AppointmentSlot> get awaitingApprovalSlots =>
-      slots.where((s) => s.status == SlotStatus.pendingDoctor).toList();
+  List<AppointmentSlot> get awaitingApprovalSlots => slots
+      .where((s) => s.status == SlotStatus.pendingDoctor && !s.escalated)
+      .toList();
+  List<AppointmentSlot> get cancellationApprovalSlots =>
+      slots.where((s) => s.status == SlotStatus.pendingCancellation).toList();
   List<AppointmentSlot> get confirmedSlots =>
       slots.where((s) => s.status == SlotStatus.confirmed).toList();
+  List<AppointmentSlot> get cancelledSlots =>
+      slots.where((s) => s.status == SlotStatus.cancelled).toList();
   List<AppointmentSlot> get slotsPendingCaregiver =>
       slots.where((s) => s.status == SlotStatus.pendingCaregiver).toList();
   List<Reminder> get medicationReminders {
@@ -581,7 +586,8 @@ class AppState extends ChangeNotifier {
       if (![
         SlotStatus.confirmed,
         SlotStatus.pendingDoctor,
-        SlotStatus.pendingCaregiver
+        SlotStatus.pendingCaregiver,
+        SlotStatus.pendingCancellation
       ].contains(s.status)) {
         return false;
       }
@@ -621,6 +627,7 @@ class AppState extends ChangeNotifier {
   void approveSlot(String id) {
     final s = slots.firstWhere((s) => s.id == id);
     s.status = SlotStatus.confirmed;
+    s.escalated = false;
     s.addLog('Booking approved', doctorDisplayName, 'doctor');
     pushNotification(
         'Your booking request has been approved by $doctorDisplayName.',
@@ -633,6 +640,7 @@ class AppState extends ChangeNotifier {
     final s = slots.firstWhere((s) => s.id == id);
     s.status = SlotStatus.available;
     s.cancelReason = reason;
+    s.escalated = false;
     s.caregiverId = null;
     s.patientId = null;
     s.addLog('Booking declined', doctorDisplayName, 'doctor', note: reason);
@@ -643,17 +651,66 @@ class AppState extends ChangeNotifier {
   }
 
   void cancelSlotDoctor(String id, String reason) {
+    final cleanReason = reason.trim();
+    if (cleanReason.isEmpty) return;
     final s = slots.firstWhere((s) => s.id == id);
     s.status = SlotStatus.cancelled;
-    s.cancelReason = reason;
+    s.escalated = false;
+    s.cancelReason = cleanReason;
     s.addLog('Appointment cancelled by doctor', doctorDisplayName, 'doctor',
-        note: reason);
+        note: cleanReason);
     pushNotification(
-        'Your appointment has been cancelled by $doctorDisplayName. Reason: $reason',
+        'Your appointment has been cancelled by $doctorDisplayName. Reason: $cleanReason',
         Role.caregiver);
     pushNotification(
-        'Your appointment has been cancelled. Please contact your caregiver.',
+        'Your appointment has been cancelled. Reason: $cleanReason',
         Role.patient);
+    notifyListeners();
+  }
+
+  void approveCancellationRequest(String id) {
+    final s = slots.firstWhere((s) => s.id == id);
+    final replacement = AppointmentSlot(
+      id: newId(),
+      doctorId: s.doctorId,
+      date: s.date,
+      time: s.time,
+      duration: s.duration,
+      title: s.title,
+      followUpSchedule: s.followUpSchedule,
+      status: SlotStatus.available,
+      published: true,
+      seriesId: s.seriesId,
+    );
+    replacement.caregiverId = null;
+    replacement.patientId = null;
+    replacement.addLog('Slot reopened after cancellation approval',
+        doctorDisplayName, 'doctor');
+
+    s.status = SlotStatus.cancelled;
+    s.escalated = false;
+    s.published = false;
+    s.addLog('Cancellation approved', doctorDisplayName, 'doctor',
+        note: s.cancelReason);
+    slots.add(replacement);
+    pushNotification(
+        'Your cancellation request for ${s.date} at ${s.time} was approved by $doctorDisplayName. Reason: ${s.cancelReason ?? "No reason provided."}',
+        Role.caregiver);
+    pushNotification(
+        'Your appointment on ${s.date} at ${s.time} has been cancelled. Reason: ${s.cancelReason ?? "No reason provided."}',
+        Role.patient);
+    notifyListeners();
+  }
+
+  void declineCancellationRequest(String id, String reason) {
+    final s = slots.firstWhere((s) => s.id == id);
+    s.status = SlotStatus.confirmed;
+    s.escalated = false;
+    s.addLog('Cancellation request declined', doctorDisplayName, 'doctor',
+        note: reason);
+    pushNotification(
+        'Your cancellation request for ${s.date} at ${s.time} was declined by $doctorDisplayName. Reason: $reason',
+        Role.caregiver);
     notifyListeners();
   }
 
@@ -663,6 +720,12 @@ class AppState extends ChangeNotifier {
     s.date = newDate;
     s.time = newTime;
     s.addLog('Slot modified', doctorDisplayName, 'doctor');
+    pushNotification(
+        '$doctorDisplayName modified your appointment to $newDate at $newTime.',
+        Role.caregiver);
+    pushNotification(
+        'Your appointment has been updated to $newDate at $newTime.',
+        Role.patient);
     notifyListeners();
   }
 
@@ -704,26 +767,46 @@ class AppState extends ChangeNotifier {
   void cancelSlotCaregiver(String slotId, String reason, bool isUrgent) {
     final s = slots.firstWhere((s) => s.id == slotId);
     if (isUrgent) {
-      s.status = SlotStatus.pendingDoctor;
+      s.status = SlotStatus.pendingCancellation;
       s.escalated = true;
       s.cancelReason = reason;
       s.addLog('Cancellation requested (< 24h, escalated to doctor)',
           caregiverFirstName, 'caregiver',
           note: reason);
       pushNotification(
-          'Urgent: $caregiverFirstName requested cancellation for appointment on ${s.date}. Please review.',
+          'Cancellation approval request from $caregiverFirstName for appointment on ${s.date} at ${s.time}. Reason: $reason',
           Role.doctor);
     } else {
       s.status = SlotStatus.cancelled;
       s.cancelReason = reason;
+      s.escalated = false;
+      s.published = false;
       s.addLog(
           'Appointment cancelled by caregiver', caregiverFirstName, 'caregiver',
           note: reason);
+      final replacement = AppointmentSlot(
+        id: newId(),
+        doctorId: s.doctorId,
+        date: s.date,
+        time: s.time,
+        duration: s.duration,
+        title: s.title,
+        followUpSchedule: s.followUpSchedule,
+        status: SlotStatus.available,
+        published: true,
+        seriesId: s.seriesId,
+      );
+      replacement.caregiverId = null;
+      replacement.patientId = null;
+      replacement.addLog('Slot reopened after caregiver cancellation',
+          caregiverFirstName, 'caregiver');
+      slots.add(replacement);
       pushNotification(
-          '$caregiverFirstName cancelled the appointment on ${s.date}.',
+          '$caregiverFirstName cancelled the appointment on ${s.date}. Reason: $reason',
           Role.doctor);
       pushNotification(
-          'Your appointment on ${s.date} has been cancelled.', Role.patient);
+          'Your appointment on ${s.date} has been cancelled. Reason: $reason.',
+          Role.patient);
     }
     notifyListeners();
   }

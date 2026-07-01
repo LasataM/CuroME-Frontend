@@ -34,6 +34,7 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
   bool _slotConflict = false;
   final _declineReasonCtrl = TextEditingController();
   String? _decliningSlotId;
+  String? _decliningCancellationSlotId;
   final _cancelReasonCtrl = TextEditingController();
   String? _cancellingSlotId;
   String? _modifyingSlotId;
@@ -376,6 +377,39 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
             padding: const EdgeInsets.all(16),
             children: [
               if (_showAddSlot) _addSlotForm(state),
+              if (state.cancellationApprovalSlots.isNotEmpty) ...[
+                _sectionLabel(
+                    'Cancellation Approval Requests', Colors.orange.shade700),
+                for (final s in state.cancellationApprovalSlots)
+                  _slotCard(state, s,
+                      requestLabel: 'Cancellation requested by',
+                      actions: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () =>
+                                state.approveCancellationRequest(s.id),
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange.shade700),
+                            icon: const Icon(Icons.event_busy,
+                                color: Colors.white, size: 16),
+                            label: const Text('Approve Cancel',
+                                style: TextStyle(color: Colors.white)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => setState(
+                                () => _decliningCancellationSlotId = s.id),
+                            style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.red,
+                                side: const BorderSide(color: Colors.red)),
+                            icon: const Icon(Icons.close, size: 16),
+                            label: const Text('Decline'),
+                          ),
+                        ),
+                      ]),
+              ],
               if (state.awaitingApprovalSlots.isNotEmpty) ...[
                 _sectionLabel('Awaiting Approval', AppColors.indigo),
                 for (final s in state.awaitingApprovalSlots)
@@ -446,6 +480,10 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
             ],
           ),
         ),
+        if (_decliningSlotId != null) _declineSheet(state),
+        if (_decliningCancellationSlotId != null) _declineSheet(state),
+        if (_cancellingSlotId != null) _doctorCancelSheet(state),
+        if (_modifyingSlotId != null) _modifySheet(state),
       ],
     );
   }
@@ -625,7 +663,9 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
   }
 
   Widget _slotCard(AppState state, AppointmentSlot s,
-      {List<Widget>? actions, bool trailingPublish = false}) {
+      {List<Widget>? actions,
+      bool trailingPublish = false,
+      String requestLabel = 'Requested by'}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -653,7 +693,7 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
                         style: TextStyle(
                             fontSize: 12, color: Colors.grey.shade500)),
                     if (s.caregiverId != null)
-                      Text('Requested by: ${s.caregiverId}',
+                      Text('$requestLabel: ${s.caregiverId}',
                           style: const TextStyle(
                               fontSize: 12, color: AppColors.indigo)),
                     if (s.cancelReason != null)
@@ -720,6 +760,256 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
   }
 
   // ── MOOD ──
+  Widget _declineSheet(AppState state) {
+    final isCancellationDecline = _decliningCancellationSlotId != null;
+    return Container(
+      color: Colors.black.withValues(alpha: 0.4),
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                  isCancellationDecline
+                      ? 'Decline Cancellation Request'
+                      : 'Decline Booking Request',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _declineReasonCtrl,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'Reason for declining...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => setState(() {
+                        _decliningSlotId = null;
+                        _decliningCancellationSlotId = null;
+                        _declineReasonCtrl.clear();
+                      }),
+                      child: const Text('Back'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final reason = _declineReasonCtrl.text.trim().isEmpty
+                            ? 'No reason provided.'
+                            : _declineReasonCtrl.text.trim();
+                        if (isCancellationDecline) {
+                          state.declineCancellationRequest(
+                              _decliningCancellationSlotId!, reason);
+                        } else {
+                          state.declineSlot(_decliningSlotId!, reason);
+                        }
+                        setState(() {
+                          _decliningSlotId = null;
+                          _decliningCancellationSlotId = null;
+                          _declineReasonCtrl.clear();
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade600),
+                      child: const Text('Decline',
+                          style: TextStyle(color: Colors.white)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _doctorCancelSheet(AppState state) {
+    final hasReason = _cancelReasonCtrl.text.trim().isNotEmpty;
+    return Container(
+      color: Colors.black.withValues(alpha: 0.4),
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Cancel Accepted Appointment',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 8),
+              const Text('A valid reason is required before cancelling.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _cancelReasonCtrl,
+                maxLines: 3,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  hintText: 'Reason for cancellation...',
+                  border: const OutlineInputBorder(),
+                  errorText: hasReason ? null : 'Reason is required',
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => setState(() {
+                        _cancellingSlotId = null;
+                        _cancelReasonCtrl.clear();
+                      }),
+                      child: const Text('Back'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: hasReason
+                          ? () {
+                              state.cancelSlotDoctor(_cancellingSlotId!,
+                                  _cancelReasonCtrl.text.trim());
+                              setState(() {
+                                _cancellingSlotId = null;
+                                _cancelReasonCtrl.clear();
+                              });
+                            }
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade600),
+                      child: const Text('Cancel Appointment',
+                          style: TextStyle(color: Colors.white)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _modifySheet(AppState state) {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.4),
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Modify Appointment',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime.now(),
+                          lastDate:
+                              DateTime.now().add(const Duration(days: 365)),
+                        );
+                        if (picked != null) {
+                          setState(() => _modifyDate = picked);
+                        }
+                      },
+                      child: Text(_modifyDate == null
+                          ? 'Select date'
+                          : _fmtDate(_modifyDate!)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () async {
+                        final picked = await showTimePicker(
+                            context: context, initialTime: TimeOfDay.now());
+                        if (picked != null) {
+                          setState(() => _modifyTime = picked);
+                        }
+                      },
+                      child: Text(_modifyTime == null
+                          ? 'Select time'
+                          : _fmtTime(_modifyTime!)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => setState(() {
+                        _modifyingSlotId = null;
+                        _modifyDate = null;
+                        _modifyTime = null;
+                      }),
+                      child: const Text('Back'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _modifyDate == null || _modifyTime == null
+                          ? null
+                          : () {
+                              state.modifySlot(
+                                  _modifyingSlotId!,
+                                  _fmtDate(_modifyDate!),
+                                  _fmtTime(_modifyTime!));
+                              setState(() {
+                                _modifyingSlotId = null;
+                                _modifyDate = null;
+                                _modifyTime = null;
+                              });
+                            },
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.indigo),
+                      child: const Text('Save Changes',
+                          style: TextStyle(color: Colors.white)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _moodTab(AppState state) {
     final patient = state.patients.where((p) => p.id == _moodPatientId).isEmpty
         ? (state.patients.isNotEmpty ? state.patients.first : null)

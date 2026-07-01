@@ -283,6 +283,8 @@ class StatusBadge extends StatelessWidget {
         return const Color(0xFFFEF3C7);
       case SlotStatus.pendingDoctor:
         return const Color(0xFFEEF2FF);
+      case SlotStatus.pendingCancellation:
+        return const Color(0xFFFFEDD5);
       case SlotStatus.confirmed:
         return const Color(0xFFDCFCE7);
       case SlotStatus.cancelled:
@@ -300,6 +302,8 @@ class StatusBadge extends StatelessWidget {
         return const Color(0xFFB45309);
       case SlotStatus.pendingDoctor:
         return AppColors.indigo;
+      case SlotStatus.pendingCancellation:
+        return const Color(0xFFC2410C);
       case SlotStatus.confirmed:
         return const Color(0xFF15803D);
       case SlotStatus.cancelled:

@@ -701,6 +701,11 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
 
   // ── APPOINTMENTS (read-only) ──
   Widget _appointmentsTab(AppState state) {
+    final appointments = [
+      ...state.confirmedSlots,
+      ...state.cancelledSlots,
+    ];
+
     return Column(
       children: [
         _PatientPageHeader(
@@ -710,7 +715,7 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
           onHome: _goHome,
         ),
         Expanded(
-          child: state.confirmedSlots.isEmpty
+          child: appointments.isEmpty
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
@@ -732,16 +737,20 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                 )
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 160),
-                  itemCount: state.confirmedSlots.length,
+                  itemCount: appointments.length,
                   itemBuilder: (_, i) {
-                    final s = state.confirmedSlots[i];
+                    final s = appointments[i];
+                    final cancelled = s.status == SlotStatus.cancelled;
                     return Container(
                       margin: const EdgeInsets.only(bottom: 14),
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         border: Border.all(
-                            color: AppColors.patientBorder, width: 2),
+                            color: cancelled
+                                ? Colors.red.shade200
+                                : AppColors.patientBorder,
+                            width: 2),
                         borderRadius: BorderRadius.circular(AppSizes.radiusMd),
                       ),
                       child: Column(
@@ -754,11 +763,19 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                                 width: 56,
                                 height: 56,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFEDE9FE),
+                                  color: cancelled
+                                      ? Colors.red.shade50
+                                      : const Color(0xFFEDE9FE),
                                   borderRadius: BorderRadius.circular(16),
                                 ),
-                                child: const Icon(Icons.calendar_month,
-                                    color: AppColors.purple, size: 28),
+                                child: Icon(
+                                    cancelled
+                                        ? Icons.event_busy
+                                        : Icons.calendar_month,
+                                    color: cancelled
+                                        ? Colors.red
+                                        : AppColors.purple,
+                                    size: 28),
                               ),
                               const SizedBox(width: 14),
                               Expanded(
@@ -801,20 +818,33 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 14, vertical: 10),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEDE9FE),
+                              color: cancelled
+                                  ? Colors.red.shade50
+                                  : const Color(0xFFEDE9FE),
                               borderRadius:
                                   BorderRadius.circular(AppSizes.radiusSm),
                             ),
-                            child: const Row(
+                            child: Row(
                               children: [
-                                Icon(Icons.notifications,
-                                    color: AppColors.purple, size: 18),
-                                SizedBox(width: 8),
+                                Icon(
+                                    cancelled
+                                        ? Icons.cancel
+                                        : Icons.notifications,
+                                    color: cancelled
+                                        ? Colors.red
+                                        : AppColors.purple,
+                                    size: 18),
+                                const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'You will get a reminder before this visit',
+                                    cancelled
+                                        ? 'This appointment was cancelled.${s.cancelReason == null ? "" : " Reason: ${s.cancelReason}"}'
+                                        : 'You will get a reminder before this visit',
                                     style: TextStyle(
-                                        fontSize: 13, color: Color(0xFF5B21B6)),
+                                        fontSize: 13,
+                                        color: cancelled
+                                            ? Colors.red
+                                            : const Color(0xFF5B21B6)),
                                   ),
                                 ),
                               ],
