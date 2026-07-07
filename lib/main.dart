@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'constants/constants.dart';
-import 'screens/caregiver_home_screen.dart';
-import 'screens/doctor_home_screen.dart';
+import 'screens/caregiver/caregiver_home_screen.dart';
+import 'screens/doctor/doctor_home_screen.dart';
 import 'screens/login_screen.dart';
-import 'screens/patient_home_screen.dart';
+import 'screens/patient/patient_home_screen.dart';
 import 'screens/signin_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/signup_success_screen.dart';
