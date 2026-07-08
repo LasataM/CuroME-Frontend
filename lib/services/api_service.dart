@@ -1,10 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Centralizes every REST call made to the CuroME FastAPI backend.
-/// All dashboards/screens should go through this service rather than
-/// instantiating Dio directly, so headers, base URL, and error handling
-/// stay consistent in one place.
 class ApiService {
   ApiService._internal() {
     _dio = Dio(BaseOptions(

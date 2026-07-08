@@ -1,10 +1,6 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
-/// CRUD utility wrapping a local SQLite database used for offline-first
-/// storage of mood check-ins, medication reminders, and appointments, so
-/// the patient-facing screens keep working without connectivity (mirrors
-/// the SQLite offline-sync flow described in the CuroME data flow design).
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   factory DatabaseHelper() => _instance;
@@ -121,8 +117,6 @@ class DatabaseHelper {
     return db.query('visit_notes', orderBy: 'timestamp DESC');
   }
 
-  /// Returns every row across tables still marked unsynced, used to push
-  /// queued offline writes once connectivity returns.
   Future<List<Map<String, dynamic>>> getUnsyncedMoodEntries() async {
     final db = await database;
     return db.query('mood_entries', where: 'synced = 0');

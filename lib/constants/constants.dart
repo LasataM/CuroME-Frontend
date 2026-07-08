@@ -1,17 +1,12 @@
 import 'package:flutter/material.dart';
 
-/// Centralized style constants, mirroring the Tailwind palette used in the
-/// original React app. Keeping these in one place makes it easy to tweak
-/// the dementia-friendly look & feel across every screen.
 class AppColors {
-  // Role / brand colors
   static const indigo = Color(0xFF4F46E5); // doctor
   static const indigoDark = Color(0xFF4338CA);
   static const emerald = Color(0xFF059669); // caregiver
   static const purple = Color(0xFF7C3AED); // patient
   static const teal = Color(0xFF0D9488);
 
-  // Patient palette (warm, high-contrast, dementia-friendly)
   static const patientBg = Color(0xFFFAF7F2);
   static const patientBorder = Color(0xFFE8E0D6);
   static const patientText = Color(0xFF1A1A1A);
@@ -36,7 +31,6 @@ class AppSizes {
   static const double minTouchTargetSm = 44;
 }
 
-/// Mood-related constants shared across dashboards.
 const Map<int, String> moodLabels = {
   1: 'Very Sad',
   2: 'Sad',

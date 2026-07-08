@@ -1,10 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
-/// Wraps push notifications (Firebase Cloud Messaging — used for SOS alerts
-/// and doctor/caregiver pushes) and local notifications (flutter_local_notifications
-/// — used for on-device medication & appointment reminders that must fire
-/// even without connectivity).
 class NotificationService {
   static final NotificationService instance = NotificationService._internal();
   NotificationService._internal();
@@ -60,8 +56,6 @@ class NotificationService {
     );
   }
 
-  /// Schedules a medication reminder. In production this would use
-  /// zonedSchedule with timezone support; kept simple here for clarity.
   Future<void> scheduleMedicationReminder({
     required int id,
     required String label,
