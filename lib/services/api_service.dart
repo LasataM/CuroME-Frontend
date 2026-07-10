@@ -69,6 +69,12 @@ class ApiService {
       _dio.post('/suggestions', data: payload);
 
   // ── SOS ──
+  Future<Response> assignDoctor(String patientId, String doctorId) =>
+      _dio.post('/assignments', data: {
+        'patient_id': patientId,
+        'doctor_id': doctorId,
+      });
+
   Future<Response> triggerSos(String patientId) =>
       _dio.post('/patients/$patientId/sos');
 }

@@ -83,9 +83,13 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
         state.pushNotification(
             '${state.patientFirstName} has triggered an SOS request.',
             Role.caregiver);
-        state.pushNotification(
-            '${state.patientFirstName} has triggered an SOS request.',
-            Role.doctor);
+        for (final doctorEmail
+            in state.assignedDoctorEmailsForPatient(state.generatedPatientId)) {
+          state.pushNotification(
+              '${state.patientFirstName} has triggered an SOS request.',
+              Role.doctor,
+              targetAccountEmail: doctorEmail);
+        }
       } else {
         setState(() => _sosCountdown = current - 1);
       }

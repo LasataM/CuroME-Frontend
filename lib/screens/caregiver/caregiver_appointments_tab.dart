@@ -52,6 +52,8 @@ class _CaregiverAppointmentsTabState
   }
 
   Widget _appointmentsTab(AppState state) {
+    final availableByDoctor =
+        state.slotsByDoctor(state.publishedAvailableSlotsForAssignedDoctors);
     final myPending = state.slots
         .where((s) =>
             s.status == SlotStatus.pendingDoctor &&
@@ -77,7 +79,7 @@ class _CaregiverAppointmentsTabState
                 _sectionLabel(
                     'Slots Awaiting Your Confirmation', Colors.amber.shade800),
                 for (final s in state.slotsPendingCaregiver)
-                  _slotCard(s, children: [
+                  _slotCard(state, s, children: [
                     if (s.approvalNote != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
@@ -111,49 +113,51 @@ class _CaregiverAppointmentsTabState
                   ]),
               ],
               _sectionLabel('Available to Book', Colors.grey.shade600),
-              if (state.publishedAvailableSlots.isEmpty)
+              if (availableByDoctor.isEmpty)
                 const EmptyState(
                     icon: Icons.calendar_month,
                     text:
                         "No slots available. Your doctor hasn't published any yet.")
               else
-                for (final s in state.publishedAvailableSlots)
-                  _slotCard(s, children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          final patientId = state.patients.isNotEmpty
-                              ? state.patients.first.id
-                              : '';
-                          if (_checkDoubleBooking(state, patientId, s.date)) {
-                            setState(() => _doubleBookingWarningDate = s.date);
-                            return;
-                          }
-                          state.requestBooking(s.id);
-                        },
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.indigo),
-                        icon: const Icon(Icons.calendar_month,
-                            color: Colors.white),
-                        label: const Text('Request Booking',
-                            style: TextStyle(color: Colors.white)),
+                for (final entry in availableByDoctor.entries) ...[
+                  _doctorSubLabel(state.doctorDisplayNameForEmail(entry.key)),
+                  for (final s in entry.value)
+                    _slotCard(state, s, children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            final patientId = state.linkedCaregiverPatientId;
+                            if (_checkDoubleBooking(state, patientId, s.date)) {
+                              setState(
+                                  () => _doubleBookingWarningDate = s.date);
+                              return;
+                            }
+                            state.requestBooking(s.id);
+                          },
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.indigo),
+                          icon: const Icon(Icons.calendar_month,
+                              color: Colors.white),
+                          label: const Text('Request Booking',
+                              style: TextStyle(color: Colors.white)),
+                        ),
                       ),
-                    ),
-                  ]),
+                    ]),
+                ],
               if (myPending.isNotEmpty) ...[
                 _sectionLabel('Pending Doctor Approval', AppColors.indigo),
-                for (final s in myPending) _slotCard(s),
+                for (final s in myPending) _slotCard(state, s),
               ],
               if (myCancellationRequests.isNotEmpty) ...[
                 _sectionLabel(
                     'Cancellation Approval Requests', Colors.orange.shade700),
-                for (final s in myCancellationRequests) _slotCard(s),
+                for (final s in myCancellationRequests) _slotCard(state, s),
               ],
               if (state.confirmedSlots.isNotEmpty) ...[
                 _sectionLabel('Confirmed', Colors.green.shade700),
                 for (final s in state.confirmedSlots)
-                  _slotCard(s, children: [
+                  _slotCard(state, s, children: [
                     Row(
                       children: [
                         Expanded(
@@ -173,7 +177,7 @@ class _CaregiverAppointmentsTabState
               if (state.cancelledSlots.isNotEmpty) ...[
                 _sectionLabel('Cancelled', Colors.red.shade400),
                 for (final s in state.cancelledSlots)
-                  Opacity(opacity: 0.75, child: _slotCard(s, state: state)),
+                  Opacity(opacity: 0.75, child: _slotCard(state, s)),
               ],
             ],
           ),
@@ -192,9 +196,26 @@ class _CaregiverAppointmentsTabState
                 letterSpacing: 1)),
       );
 
-  Widget _slotCard(AppointmentSlot s,
-      {List<Widget>? children, AppState? state}) {
-    final cancellationSource = state?.cancellationSourceLabel(s) ?? '';
+  Widget _doctorSubLabel(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 8, top: 4),
+        child: Row(
+          children: [
+            const Icon(Icons.medical_services,
+                size: 15, color: AppColors.indigo),
+            const SizedBox(width: 6),
+            Text(text,
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.indigo)),
+          ],
+        ),
+      );
+
+  Widget _slotCard(AppState state, AppointmentSlot s,
+      {List<Widget>? children}) {
+    final cancellationSource = state.cancellationSourceLabel(s);
+    final doctorName = state.doctorDisplayNameForEmail(s.doctorId);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -221,6 +242,9 @@ class _CaregiverAppointmentsTabState
                     Text('${s.date} at ${s.time} · ${s.duration}min',
                         style: TextStyle(
                             fontSize: 12, color: Colors.grey.shade500)),
+                    Text('Doctor: $doctorName',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.indigo)),
                     if (s.escalated)
                       const Text('Cancellation sent to doctor',
                           style: TextStyle(fontSize: 12, color: Colors.red)),

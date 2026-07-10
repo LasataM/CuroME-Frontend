@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'constants/constants.dart';
 import 'screens/caregiver/caregiver_home_screen.dart';
+import 'screens/clinic/clinic_home_screen.dart';
 import 'screens/doctor/doctor_home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/patient/patient_home_screen.dart';
@@ -89,6 +90,7 @@ class CuroMeApp extends StatelessWidget {
         '/doctor': (_) => const DoctorHomeScreen(),
         '/caregiver': (_) => const CaregiverHomeScreen(),
         '/patient': (_) => const PatientHomeScreen(),
+        '/clinic': (_) => const ClinicHomeScreen(),
       },
       onUnknownRoute: (_) => MaterialPageRoute(
         builder: (_) => const LoginScreen(),

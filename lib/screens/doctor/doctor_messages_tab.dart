@@ -81,16 +81,17 @@ class _DoctorMessagesTabState extends ConsumerState<DoctorMessagesTab> {
   }
 
   Widget _patientInboxList(AppState state) {
-    if (state.patients.isEmpty) {
+    final patients = state.doctorVisiblePatients;
+    if (patients.isEmpty) {
       return const EmptyState(icon: Icons.message, text: 'No messages yet.');
     }
     return ListView.separated(
-      itemCount: state.patients.length,
+      itemCount: patients.length,
       separatorBuilder: (_, __) =>
           Divider(height: 1, color: Colors.grey.shade100),
       itemBuilder: (_, i) {
-        final p = state.patients[i];
-        final msgs = state.patientMessages[p.id] ?? [];
+        final p = patients[i];
+        final msgs = state.patientDoctorThread(p.id, state.currentAccountEmail);
         final last = msgs.isNotEmpty ? msgs.last : null;
         return ListTile(
           leading: PatientAvatar(patient: p, size: 44),
@@ -117,16 +118,17 @@ class _DoctorMessagesTabState extends ConsumerState<DoctorMessagesTab> {
   }
 
   Widget _caregiverInboxList(AppState state) {
-    if (state.caregiverContacts.isEmpty) {
+    final caregivers = state.doctorVisibleCaregiverContacts;
+    if (caregivers.isEmpty) {
       return const EmptyState(icon: Icons.message, text: 'No messages yet.');
     }
     return ListView.separated(
-      itemCount: state.caregiverContacts.length,
+      itemCount: caregivers.length,
       separatorBuilder: (_, __) =>
           Divider(height: 1, color: Colors.grey.shade100),
       itemBuilder: (_, i) {
-        final cg = state.caregiverContacts[i];
-        final thread = state.docCgThreads[cg.id] ?? [];
+        final cg = caregivers[i];
+        final thread = state.doctorCaregiverThread(cg.id);
         final last = thread.isNotEmpty ? thread.last : null;
         return ListTile(
           leading: CircleAvatar(
@@ -152,7 +154,9 @@ class _DoctorMessagesTabState extends ConsumerState<DoctorMessagesTab> {
 
   Widget _patientThread(AppState state) {
     final patient = state.selectedPatient;
-    final msgs = state.patientMessages[state.selectedPatientId] ?? [];
+    final msgs = patient == null
+        ? const <ChatMessage>[]
+        : state.patientDoctorThread(patient.id, state.currentAccountEmail);
     return Column(
       children: [
         PageHeader(
@@ -180,18 +184,27 @@ class _DoctorMessagesTabState extends ConsumerState<DoctorMessagesTab> {
             placeholder: 'Message ${patient.shortName}…',
             accentColor: AppColors.indigo,
             onSend: (text) => state.sendPatientMessage(
-                patient.id, text, state.doctorDisplayName, Role.doctor),
+              patient.id,
+              text,
+              state.doctorDisplayName,
+              Role.doctor,
+              doctorEmail: state.currentAccountEmail,
+            ),
           ),
       ],
     );
   }
 
   Widget _caregiverThread(AppState state) {
-    final cg =
-        state.caregiverContacts.where((c) => c.id == _selectedCgId).isEmpty
-            ? null
-            : state.caregiverContacts.firstWhere((c) => c.id == _selectedCgId);
-    final thread = state.docCgThreads[_selectedCgId] ?? [];
+    final cg = state.doctorVisibleCaregiverContacts
+            .where((c) => c.id == _selectedCgId)
+            .isEmpty
+        ? null
+        : state.doctorVisibleCaregiverContacts
+            .firstWhere((c) => c.id == _selectedCgId);
+    final thread = _selectedCgId == null
+        ? const <ChatMessage>[]
+        : state.doctorCaregiverThread(_selectedCgId!);
     return Column(
       children: [
         PageHeader(

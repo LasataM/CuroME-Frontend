@@ -13,10 +13,17 @@ class CaregiverSuggestionsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(appStateProvider);
-    final suggestions = state.caregiverSuggestions.reversed.toList();
+    final patientId = state.linkedCaregiverPatientId;
+    final doctors = state.doctorsForPatient(patientId);
     final patientName = state.linkedPatientName.isEmpty
         ? 'your patient'
         : state.linkedPatientName;
+    final totalSuggestions = doctors.fold<int>(
+      0,
+      (count, doctor) =>
+          count +
+          state.suggestionsForPatientAndDoctor(patientId, doctor.email).length,
+    );
 
     return Column(
       children: [
@@ -46,7 +53,7 @@ class CaregiverSuggestionsTab extends ConsumerWidget {
                                   fontWeight: FontWeight.bold,
                                   color: Colors.green.shade800)),
                           Text(
-                              '${suggestions.length} recommendation${suggestions.length == 1 ? "" : "s"} available',
+                              '$totalSuggestions recommendation${totalSuggestions == 1 ? "" : "s"} available',
                               style: TextStyle(
                                   fontSize: 11, color: Colors.green.shade700)),
                         ],
@@ -56,13 +63,18 @@ class CaregiverSuggestionsTab extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              if (suggestions.isEmpty)
+              if (totalSuggestions == 0)
                 const EmptyState(
                     icon: Icons.assignment,
                     text: 'No doctor suggestions for this patient yet.')
               else
-                for (final suggestion in suggestions)
-                  _caregiverSuggestionCard(suggestion),
+                for (final doctor in doctors) ...[
+                  _doctorSubLabel(state.doctorDisplayNameForAccount(doctor)),
+                  for (final suggestion in state
+                      .suggestionsForPatientAndDoctor(patientId, doctor.email)
+                      .reversed)
+                    _caregiverSuggestionCard(suggestion),
+                ],
             ],
           ),
         ),
@@ -127,4 +139,20 @@ class CaregiverSuggestionsTab extends ConsumerWidget {
       ),
     );
   }
+
+  Widget _doctorSubLabel(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 8, top: 4),
+        child: Row(
+          children: [
+            const Icon(Icons.medical_services,
+                size: 15, color: AppColors.indigo),
+            const SizedBox(width: 6),
+            Text(text,
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.indigo)),
+          ],
+        ),
+      );
 }

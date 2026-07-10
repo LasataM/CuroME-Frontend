@@ -16,6 +16,8 @@ String formatNow() => DateFormat('EEEE, d MMMM y').format(DateTime.now());
 class AppState extends ChangeNotifier {
   static const _accountsPrefsKey = 'curome_accounts_v1';
   static const _moodCheckPrefsKey = 'curome_mood_checks_v1';
+  static const _assignmentsPrefsKey = 'curome_assignments_v1';
+  static const _doctorAvailabilityPrefsKey = 'curome_doctor_availability_v1';
 
   final DatabaseHelper db = DatabaseHelper();
 
@@ -53,6 +55,8 @@ class AppState extends ChangeNotifier {
   final List<VisitNote> visitNotes = [];
   final List<AppointmentSlot> slots = [];
   final List<AppNotification> notifications = [];
+  final List<PatientDoctorAssignment> assignments = [];
+  final Set<String> unavailableDoctorEmails = {};
 
   String selectedPatientId = '';
   String linkedDoctorName = '';
@@ -89,6 +93,27 @@ class AppState extends ChangeNotifier {
       }
     }
 
+    final rawAssignments = prefs.getString(_assignmentsPrefsKey);
+    if (rawAssignments != null && rawAssignments.isNotEmpty) {
+      final decoded = jsonDecode(rawAssignments);
+      if (decoded is List) {
+        assignments
+          ..clear()
+          ..addAll(decoded.whereType<Map>().map(
+              (row) => _assignmentFromJson(Map<String, dynamic>.from(row))));
+      }
+    }
+
+    final rawAvailability = prefs.getString(_doctorAvailabilityPrefsKey);
+    if (rawAvailability != null && rawAvailability.isNotEmpty) {
+      final decoded = jsonDecode(rawAvailability);
+      if (decoded is List) {
+        unavailableDoctorEmails
+          ..clear()
+          ..addAll(decoded.map((value) => value.toString()));
+      }
+    }
+
     _accountsLoaded = true;
     notifyListeners();
   }
@@ -105,6 +130,22 @@ class AppState extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
         _moodCheckPrefsKey, jsonEncode(_lastMoodCheckByPatient));
+  }
+
+  Future<void> _saveAssignments() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _assignmentsPrefsKey,
+      jsonEncode(assignments.map(_assignmentToJson).toList()),
+    );
+  }
+
+  Future<void> _saveDoctorAvailability() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _doctorAvailabilityPrefsKey,
+      jsonEncode(unavailableDoctorEmails.toList()),
+    );
   }
 
   bool accountExists(String email) {
@@ -142,6 +183,22 @@ class AppState extends ChangeNotifier {
         patientId: json['patientId']?.toString(),
       );
 
+  Map<String, dynamic> _assignmentToJson(PatientDoctorAssignment assignment) =>
+      {
+        'id': assignment.id,
+        'patientId': assignment.patientId,
+        'doctorEmail': assignment.doctorEmail,
+        'assignedAt': assignment.assignedAt,
+      };
+
+  PatientDoctorAssignment _assignmentFromJson(Map<String, dynamic> json) =>
+      PatientDoctorAssignment(
+        id: (json['id'] ?? newId()).toString(),
+        patientId: (json['patientId'] ?? '').toString(),
+        doctorEmail: (json['doctorEmail'] ?? '').toString(),
+        assignedAt: (json['assignedAt'] ?? '').toString(),
+      );
+
   void _applyAccountSession(StoredAccount account) {
     session = Session(loggedIn: true, role: account.role, name: account.name);
     role = account.role;
@@ -156,6 +213,10 @@ class AppState extends ChangeNotifier {
 
     if (account.role == Role.caregiver) {
       _syncCaregiverLinks(account);
+    }
+
+    if (account.role == Role.clinicAdmin) {
+      _syncPatientLinks();
     }
   }
 
@@ -206,14 +267,18 @@ class AppState extends ChangeNotifier {
   }
 
   void _syncPatientLinks() {
-    try {
-      final doc = storedAccounts.firstWhere((a) => a.role == Role.doctor);
-      final last = _lastName(doc.name);
-      linkedDoctorName =
-          'Dr. ${last[0].toUpperCase()}${last.substring(1).toLowerCase()}';
-    } catch (_) {
-      linkedDoctorName = '';
+    final patientId = generatedPatientId.isNotEmpty
+        ? generatedPatientId
+        : selectedPatientId.isNotEmpty
+            ? selectedPatientId
+            : linkedCaregiverPatientId;
+    final assignedName = assignedDoctorNamesForPatient(patientId);
+    if (assignedName.isNotEmpty) {
+      linkedDoctorName = assignedName;
+      return;
     }
+
+    linkedDoctorName = '';
   }
 
   String? _patientNameForId(String? patientId) {
@@ -251,10 +316,12 @@ class AppState extends ChangeNotifier {
   }
 
   PatientProfile? get selectedPatient {
+    final visiblePatients =
+        role == Role.doctor ? doctorVisiblePatients : patients;
     try {
-      return patients.firstWhere((p) => p.id == selectedPatientId);
+      return visiblePatients.firstWhere((p) => p.id == selectedPatientId);
     } catch (_) {
-      return patients.isNotEmpty ? patients.first : null;
+      return visiblePatients.isNotEmpty ? visiblePatients.first : null;
     }
   }
 
@@ -289,30 +356,45 @@ class AppState extends ChangeNotifier {
   List<AppointmentSlot> get publishedAvailableSlots => slots
       .where((s) => s.status == SlotStatus.available && s.published)
       .toList();
-  List<AppointmentSlot> get awaitingApprovalSlots => slots
+  List<AppointmentSlot> get awaitingApprovalSlots => doctorScopedSlots
       .where((s) => s.status == SlotStatus.pendingDoctor && !s.escalated)
       .toList();
-  List<AppointmentSlot> get cancellationApprovalSlots =>
-      slots.where((s) => s.status == SlotStatus.pendingCancellation).toList();
-  List<AppointmentSlot> get confirmedSlots =>
-      slots.where((s) => s.status == SlotStatus.confirmed).toList();
-  List<AppointmentSlot> get cancelledSlots =>
-      slots.where((s) => s.status == SlotStatus.cancelled).toList();
-  List<AppointmentSlot> get slotsPendingCaregiver =>
-      slots.where((s) => s.status == SlotStatus.pendingCaregiver).toList();
+  List<AppointmentSlot> get cancellationApprovalSlots => doctorScopedSlots
+      .where((s) => s.status == SlotStatus.pendingCancellation)
+      .toList();
+  List<AppointmentSlot> get confirmedSlots => _visiblePatientSlots
+      .where((s) => s.status == SlotStatus.confirmed)
+      .toList();
+  List<AppointmentSlot> get cancelledSlots => _visiblePatientSlots
+      .where((s) => s.status == SlotStatus.cancelled)
+      .toList();
+  List<AppointmentSlot> get slotsPendingCaregiver => _visiblePatientSlots
+      .where((s) => s.status == SlotStatus.pendingCaregiver)
+      .toList();
   List<Reminder> get medicationReminders {
     final list = reminders.where((r) => r.type == 'medication').toList();
     list.sort((a, b) => _reminderSortValue(a).compareTo(_reminderSortValue(b)));
     return list;
   }
 
-  List<AppNotification> notificationsFor(Role r) =>
-      notifications.where((n) => n.role == r).toList();
+  List<AppNotification> notificationsFor(Role r) => notifications.where((n) {
+        if (n.role != r) return false;
+        if (r != Role.doctor) return true;
+        return n.targetAccountEmail == currentAccountEmail;
+      }).toList();
   int unreadCountFor(Role r) =>
       notificationsFor(r).where((n) => !n.read).length;
 
   List<PatientSuggestion> suggestionsForPatient(String patientId) =>
       suggestions.where((s) => s.patientId == patientId).toList();
+
+  List<PatientSuggestion> suggestionsForPatientAndDoctor(
+          String patientId, String doctorEmail) =>
+      suggestions
+          .where((s) =>
+              s.patientId == patientId &&
+              (s.doctorEmail == null || s.doctorEmail == doctorEmail))
+          .toList();
 
   List<PatientSuggestion> get caregiverSuggestions {
     final patientId = linkedCaregiverPatientId;
@@ -322,6 +404,294 @@ class AppState extends ChangeNotifier {
 
   List<VisitNote> visitNotesForPatient(String patientId) =>
       visitNotes.where((note) => note.patientId == patientId).toList();
+
+  List<StoredAccount> get doctorAccounts =>
+      storedAccounts.where((account) => account.role == Role.doctor).toList();
+
+  PatientDoctorAssignment? assignmentForPatient(String patientId) {
+    try {
+      return assignments.lastWhere((a) => a.patientId == patientId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<PatientDoctorAssignment> assignmentsForPatient(String patientId) =>
+      assignments.where((a) => a.patientId == patientId).toList();
+
+  List<String> assignedDoctorEmailsForPatient(String patientId) =>
+      assignmentsForPatient(patientId)
+          .map((assignment) => assignment.doctorEmail)
+          .toSet()
+          .toList();
+
+  StoredAccount? doctorForPatient(String patientId) {
+    final assignment = assignmentForPatient(patientId);
+    if (assignment == null) return null;
+    try {
+      return storedAccounts.firstWhere(
+        (account) =>
+            account.role == Role.doctor &&
+            account.email == assignment.doctorEmail,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String assignedDoctorNameForPatient(String patientId) {
+    final doctor = doctorForPatient(patientId);
+    if (doctor == null) return '';
+    final last = _lastName(doctor.name);
+    if (last.isEmpty) return doctor.name;
+    return 'Dr. ${last[0].toUpperCase()}${last.substring(1).toLowerCase()}';
+  }
+
+  List<StoredAccount> doctorsForPatient(String patientId) {
+    final emails = assignmentsForPatient(patientId)
+        .map((assignment) => assignment.doctorEmail)
+        .toSet();
+    return storedAccounts
+        .where((account) =>
+            account.role == Role.doctor && emails.contains(account.email))
+        .toList();
+  }
+
+  String doctorDisplayNameForAccount(StoredAccount doctor) {
+    final last = _lastName(doctor.name);
+    if (last.isEmpty) return doctor.name;
+    return 'Dr. ${last[0].toUpperCase()}${last.substring(1).toLowerCase()}';
+  }
+
+  String doctorDisplayNameForEmail(String doctorEmail) {
+    try {
+      final doctor = storedAccounts.firstWhere((account) =>
+          account.role == Role.doctor && account.email == doctorEmail);
+      return doctorDisplayNameForAccount(doctor);
+    } catch (_) {
+      return doctorEmail;
+    }
+  }
+
+  String assignedDoctorNamesForPatient(String patientId) {
+    final names = doctorsForPatient(patientId)
+        .map(doctorDisplayNameForAccount)
+        .where((name) => name.isNotEmpty)
+        .toList();
+    return names.join(', ');
+  }
+
+  String caregiverNameForPatient(String patientId) {
+    try {
+      return storedAccounts
+          .firstWhere((account) =>
+              account.role == Role.caregiver &&
+              account.linkedPatientId == patientId)
+          .name;
+    } catch (_) {
+      return 'Not linked';
+    }
+  }
+
+  int patientLoadForDoctor(String doctorEmail) =>
+      assignments.where((a) => a.doctorEmail == doctorEmail).length;
+
+  bool isDoctorAvailable(String doctorEmail) =>
+      !unavailableDoctorEmails.contains(doctorEmail);
+
+  List<PatientProfile> assignedPatientsForDoctor(String doctorEmail) {
+    final assignedIds = assignments
+        .where((a) => a.doctorEmail == doctorEmail)
+        .map((a) => a.patientId)
+        .toSet();
+    return patients
+        .where((patient) => assignedIds.contains(patient.id))
+        .toList();
+  }
+
+  List<PatientProfile> get doctorVisiblePatients {
+    if (role != Role.doctor || currentAccountEmail.isEmpty) return patients;
+    return assignedPatientsForDoctor(currentAccountEmail);
+  }
+
+  List<CaregiverContact> get doctorVisibleCaregiverContacts {
+    if (role != Role.doctor || currentAccountEmail.isEmpty) {
+      return caregiverContacts;
+    }
+
+    final assignedIds = assignedPatientsForDoctor(currentAccountEmail)
+        .map((patient) => patient.id)
+        .toSet();
+    final contacts = <CaregiverContact>[];
+    final seenPatientIds = <String>{};
+
+    for (final account
+        in storedAccounts.where((a) => a.role == Role.caregiver)) {
+      final patientId = account.linkedPatientId ?? '';
+      if (!assignedIds.contains(patientId) ||
+          seenPatientIds.contains(patientId)) {
+        continue;
+      }
+      seenPatientIds.add(patientId);
+      contacts.add(CaregiverContact(
+        id: account.email,
+        name: account.name,
+        shortName: _firstName(account.name),
+        initials: _initialsFor(account.name, fallback: 'C'),
+        avatarColor: 0xFF059669,
+        patientName: _patientNameForId(patientId) ?? 'Linked patient',
+      ));
+    }
+
+    return contacts;
+  }
+
+  List<AppointmentSlot> get doctorScopedSlots {
+    if (role != Role.doctor || currentAccountEmail.isEmpty) return slots;
+    return slots.where(_slotBelongsToCurrentDoctor).toList();
+  }
+
+  List<AppointmentSlot> get publishedAvailableSlotsForAssignedDoctors {
+    final patientId = _activePatientIdForCurrentUser;
+    if (patientId.isEmpty) return const [];
+    final doctorEmails = assignedDoctorEmailsForPatient(patientId).toSet();
+    return slots
+        .where((slot) =>
+            slot.status == SlotStatus.available &&
+            slot.published &&
+            doctorEmails.contains(slot.doctorId))
+        .toList();
+  }
+
+  Map<String, List<AppointmentSlot>> slotsByDoctor(
+      Iterable<AppointmentSlot> source) {
+    final grouped = <String, List<AppointmentSlot>>{};
+    for (final slot in source) {
+      grouped.putIfAbsent(slot.doctorId, () => []).add(slot);
+    }
+    return grouped;
+  }
+
+  List<AppointmentSlot> get _visiblePatientSlots {
+    if (role == Role.doctor) return doctorScopedSlots;
+    final patientId = _activePatientIdForCurrentUser;
+    if (patientId.isEmpty) return const [];
+    return slots.where((slot) => slot.patientId == patientId).toList();
+  }
+
+  String get _activePatientIdForCurrentUser {
+    if (role == Role.caregiver) return linkedCaregiverPatientId;
+    if (generatedPatientId.isNotEmpty) return generatedPatientId;
+    if (selectedPatientId.isNotEmpty) return selectedPatientId;
+    return selectedPatient?.id ?? '';
+  }
+
+  bool _slotBelongsToCurrentDoctor(AppointmentSlot slot) {
+    if (slot.doctorId == currentAccountEmail ||
+        slot.doctorId == session?.name ||
+        slot.doctorId == doctorDisplayName) {
+      return true;
+    }
+    final patientId = slot.patientId;
+    if (patientId == null || patientId.isEmpty) return false;
+    return assignmentsForPatient(patientId)
+        .any((assignment) => assignment.doctorEmail == currentAccountEmail);
+  }
+
+  String? assignedDoctorEmailForPatient(String patientId) =>
+      assignmentForPatient(patientId)?.doctorEmail;
+
+  String? get assignedDoctorEmailForCurrentCaregiver {
+    final patientId = linkedCaregiverPatientId;
+    if (patientId.isEmpty) return null;
+    return assignedDoctorEmailForPatient(patientId);
+  }
+
+  String _docCgThreadKey(String caregiverEmail, {String? doctorEmail}) {
+    final resolvedDoctorEmail = doctorEmail ??
+        (role == Role.caregiver
+            ? assignedDoctorEmailForCurrentCaregiver
+            : currentAccountEmail);
+    if (resolvedDoctorEmail == null || resolvedDoctorEmail.isEmpty) {
+      return caregiverEmail;
+    }
+    return '$resolvedDoctorEmail::$caregiverEmail';
+  }
+
+  String _patientDoctorThreadKey(String patientId, {String? doctorEmail}) {
+    final resolvedDoctorEmail = doctorEmail ??
+        (role == Role.doctor
+            ? currentAccountEmail
+            : assignedDoctorEmailForPatient(patientId));
+    if (resolvedDoctorEmail == null || resolvedDoctorEmail.isEmpty) {
+      return patientId;
+    }
+    return '$resolvedDoctorEmail::$patientId';
+  }
+
+  List<ChatMessage> doctorCaregiverThread(String caregiverEmail) =>
+      docCgThreads[_docCgThreadKey(caregiverEmail)] ?? const [];
+
+  List<ChatMessage> caregiverDoctorThreadFor(String doctorEmail) {
+    if (currentAccountEmail.isEmpty) return const [];
+    return docCgThreads[_docCgThreadKey(
+          currentAccountEmail,
+          doctorEmail: doctorEmail,
+        )] ??
+        const [];
+  }
+
+  List<ChatMessage> patientDoctorThread(String patientId, String doctorEmail) =>
+      patientMessages[
+          _patientDoctorThreadKey(patientId, doctorEmail: doctorEmail)] ??
+      const [];
+
+  void selectPatient(String patientId) {
+    selectedPatientId = patientId;
+    notifyListeners();
+  }
+
+  void assignDoctorToPatient(String patientId, String doctorEmail) {
+    if (patientId.isEmpty || doctorEmail.isEmpty) return;
+    final alreadyAssigned = assignments.any((assignment) =>
+        assignment.patientId == patientId &&
+        assignment.doctorEmail == doctorEmail);
+    if (alreadyAssigned) return;
+    assignments.add(PatientDoctorAssignment(
+      id: newId(),
+      patientId: patientId,
+      doctorEmail: doctorEmail,
+      assignedAt: DateFormat('MMM d, y - h:mm a').format(DateTime.now()),
+    ));
+    _syncPatientLinks();
+    unawaited(_saveAssignments());
+    pushNotification('A patient has been assigned to your care.', Role.doctor,
+        targetAccountEmail: doctorEmail);
+    pushNotification('Your clinic assigned a doctor.', Role.patient);
+    pushNotification(
+        'Your patient has a clinic doctor assignment.', Role.caregiver);
+    notifyListeners();
+  }
+
+  void removeDoctorFromPatient(String patientId, String doctorEmail) {
+    if (patientId.isEmpty || doctorEmail.isEmpty) return;
+    assignments.removeWhere((assignment) =>
+        assignment.patientId == patientId &&
+        assignment.doctorEmail == doctorEmail);
+    _syncPatientLinks();
+    unawaited(_saveAssignments());
+    notifyListeners();
+  }
+
+  void toggleDoctorAvailability(String doctorEmail) {
+    if (unavailableDoctorEmails.contains(doctorEmail)) {
+      unavailableDoctorEmails.remove(doctorEmail);
+    } else {
+      unavailableDoctorEmails.add(doctorEmail);
+    }
+    unawaited(_saveDoctorAvailability());
+    notifyListeners();
+  }
 
   String cancellationSourceLabel(AppointmentSlot slot) {
     if (slot.status != SlotStatus.cancelled) return '';
@@ -354,7 +724,7 @@ class AppState extends ChangeNotifier {
 
   List<ChatMessage> get caregiverDoctorThread {
     if (currentAccountEmail.isEmpty) return const [];
-    final thread = docCgThreads[currentAccountEmail];
+    final thread = docCgThreads[_docCgThreadKey(currentAccountEmail)];
     if (thread != null && thread.isNotEmpty) return thread;
     return cgDoctorThread;
   }
@@ -503,7 +873,16 @@ class AppState extends ChangeNotifier {
   }
 
   void addSuggestion(PatientSuggestion s) {
-    suggestions.add(s);
+    suggestions.add(PatientSuggestion(
+      id: s.id,
+      patientId: s.patientId,
+      doctorEmail: s.doctorEmail ?? currentAccountEmail,
+      type: s.type,
+      text: s.text,
+      rationale: s.rationale,
+      priority: s.priority,
+      from: s.from,
+    ));
     notifyListeners();
   }
 
@@ -520,18 +899,23 @@ class AppState extends ChangeNotifier {
           '${DateFormat('MMM d, y').format(DateTime.now())} - ${nowTime()}',
       from: session?.name ?? 'Caregiver',
     ));
-    pushNotification(
-        '${caregiverFirstName.isEmpty ? "Caregiver" : caregiverFirstName} published a visit note.',
-        Role.doctor);
+    for (final doctorEmail in assignedDoctorEmailsForPatient(patientId)) {
+      pushNotification(
+          '${caregiverFirstName.isEmpty ? "Caregiver" : caregiverFirstName} published a visit note.',
+          Role.doctor,
+          targetAccountEmail: doctorEmail);
+    }
     notifyListeners();
   }
 
-  void pushNotification(String text, Role targetRole) {
+  void pushNotification(String text, Role targetRole,
+      {String? targetAccountEmail}) {
     notifications.add(AppNotification(
       id: newId(),
       text: text,
       time: nowTime(),
       role: targetRole,
+      targetAccountEmail: targetAccountEmail,
     ));
     notifyListeners();
   }
@@ -543,9 +927,12 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void sendPatientMessage(
-      String patientId, String text, String from, Role role) {
-    patientMessages.putIfAbsent(patientId, () => []).add(ChatMessage(
+  void sendPatientMessage(String patientId, String text, String from, Role role,
+      {String? doctorEmail}) {
+    final threadKey = _patientDoctorThreadKey(patientId,
+        doctorEmail:
+            doctorEmail ?? (role == Role.doctor ? currentAccountEmail : null));
+    patientMessages.putIfAbsent(threadKey, () => []).add(ChatMessage(
           id: newId(),
           from: from,
           text: text,
@@ -556,7 +943,8 @@ class AppState extends ChangeNotifier {
   }
 
   void sendDocCgMessage(String cgId, String text, String from) {
-    docCgThreads.putIfAbsent(cgId, () => []).add(ChatMessage(
+    final threadKey = _docCgThreadKey(cgId);
+    docCgThreads.putIfAbsent(threadKey, () => []).add(ChatMessage(
           id: newId(),
           from: from,
           text: text,
@@ -566,10 +954,11 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void sendCgDoctorMessage(String text, String from) {
+  void sendCgDoctorMessage(String text, String from, {String? doctorEmail}) {
     final cgId = currentAccountEmail;
     if (cgId.isEmpty) return;
-    final thread = docCgThreads.putIfAbsent(cgId, () => []);
+    final thread = docCgThreads.putIfAbsent(
+        _docCgThreadKey(cgId, doctorEmail: doctorEmail), () => []);
     if (thread.isEmpty && cgDoctorThread.isNotEmpty) {
       thread.addAll(cgDoctorThread);
     }
@@ -628,7 +1017,9 @@ class AppState extends ChangeNotifier {
   }) {
     final slot = AppointmentSlot(
       id: newId(),
-      doctorId: session?.name ?? 'doctor',
+      doctorId: currentAccountEmail.isNotEmpty
+          ? currentAccountEmail
+          : (session?.name ?? 'doctor'),
       date: date,
       time: time,
       duration: duration,
@@ -755,14 +1146,17 @@ class AppState extends ChangeNotifier {
 
   void requestBooking(String slotId) {
     final s = slots.firstWhere((s) => s.id == slotId);
-    final patientId = patients.isNotEmpty ? patients.first.id : '';
+    final patientId = linkedCaregiverPatientId.isNotEmpty
+        ? linkedCaregiverPatientId
+        : (patients.isNotEmpty ? patients.first.id : '');
     s.status = SlotStatus.pendingDoctor;
     s.caregiverId = caregiverFirstName;
     s.patientId = patientId;
     s.addLog('Booking requested by caregiver', caregiverFirstName, 'caregiver');
     pushNotification(
         'Booking request from $caregiverFirstName for patient on ${s.date} at ${s.time}. Awaiting your approval.',
-        Role.doctor);
+        Role.doctor,
+        targetAccountEmail: s.doctorId);
     notifyListeners();
   }
 
@@ -772,7 +1166,8 @@ class AppState extends ChangeNotifier {
     s.addLog('Caregiver confirmed slot', caregiverFirstName, 'caregiver');
     pushNotification(
         '$caregiverFirstName confirmed a slot and it awaits your final approval.',
-        Role.doctor);
+        Role.doctor,
+        targetAccountEmail: s.doctorId);
     notifyListeners();
   }
 
@@ -784,7 +1179,8 @@ class AppState extends ChangeNotifier {
         note: note);
     pushNotification(
         '$caregiverFirstName suggested a different time for slot on ${s.date}. Note: $note',
-        Role.doctor);
+        Role.doctor,
+        targetAccountEmail: s.doctorId);
     notifyListeners();
   }
 
@@ -799,7 +1195,8 @@ class AppState extends ChangeNotifier {
           note: reason);
       pushNotification(
           'Cancellation approval request from $caregiverFirstName for appointment on ${s.date} at ${s.time}. Reason: $reason',
-          Role.doctor);
+          Role.doctor,
+          targetAccountEmail: s.doctorId);
     } else {
       s.status = SlotStatus.cancelled;
       s.cancelReason = reason;
@@ -827,7 +1224,8 @@ class AppState extends ChangeNotifier {
       slots.add(replacement);
       pushNotification(
           '$caregiverFirstName cancelled the appointment on ${s.date}. Reason: $reason',
-          Role.doctor);
+          Role.doctor,
+          targetAccountEmail: s.doctorId);
       pushNotification(
           'Your appointment on ${s.date} has been cancelled. Reason: $reason.',
           Role.patient);

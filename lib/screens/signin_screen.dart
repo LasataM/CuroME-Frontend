@@ -37,7 +37,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       ? AppColors.indigo
       : _role == Role.caregiver
           ? AppColors.emerald
-          : AppColors.purple;
+          : _role == Role.clinicAdmin
+              ? AppColors.teal
+              : AppColors.purple;
 
   Future<void> _submit() async {
     final errors = <String, String>{};
@@ -82,16 +84,27 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         return '/caregiver';
       case Role.patient:
         return '/patient';
+      case Role.clinicAdmin:
+        return '/clinic';
+    }
+  }
+
+  String _roleLabel(Role role) {
+    switch (role) {
+      case Role.doctor:
+        return 'Doctor';
+      case Role.caregiver:
+        return 'Caregiver';
+      case Role.patient:
+        return 'Patient';
+      case Role.clinicAdmin:
+        return 'Clinic Admin';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final roleLabel = _role == Role.doctor
-        ? 'Doctor'
-        : _role == Role.caregiver
-            ? 'Caregiver'
-            : 'Patient';
+    final roleLabel = _roleLabel(_role);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F3FF),

@@ -13,7 +13,15 @@ class DoctorVisitNotesTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(appStateProvider);
-    final patient = state.selectedPatient;
+    final patients = state.doctorVisiblePatients;
+    if (patients.isNotEmpty &&
+        !patients.any((patient) => patient.id == state.selectedPatientId)) {
+      state.selectedPatientId = patients.first.id;
+    }
+    final patient =
+        patients.where((p) => p.id == state.selectedPatientId).isEmpty
+            ? null
+            : patients.firstWhere((p) => p.id == state.selectedPatientId);
     final notes =
         state.visitNotesForPatient(state.selectedPatientId).reversed.toList();
 
@@ -24,9 +32,9 @@ class DoctorVisitNotesTab extends ConsumerWidget {
           onBack: onBack,
         ),
         PatientSelector(
-          patients: state.patients,
+          patients: patients,
           selectedId: state.selectedPatientId,
-          onSelect: (id) => state.selectedPatientId = id,
+          onSelect: state.selectPatient,
         ),
         Expanded(
           child: patient == null

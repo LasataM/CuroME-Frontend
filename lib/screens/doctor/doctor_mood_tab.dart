@@ -20,15 +20,20 @@ class _DoctorMoodTabState extends ConsumerState<DoctorMoodTab> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(appStateProvider);
-    if (_moodPatientId.isEmpty && state.patients.isNotEmpty) {
-      _moodPatientId = state.selectedPatientId.isNotEmpty
+    final patients = state.doctorVisiblePatients;
+    final selectedVisible =
+        patients.any((patient) => patient.id == state.selectedPatientId);
+    if ((_moodPatientId.isEmpty ||
+            !patients.any((patient) => patient.id == _moodPatientId)) &&
+        patients.isNotEmpty) {
+      _moodPatientId = selectedVisible
           ? state.selectedPatientId
-          : state.patients.first.id;
+          : patients.first.id;
     }
 
-    final patient = state.patients.where((p) => p.id == _moodPatientId).isEmpty
-        ? (state.patients.isNotEmpty ? state.patients.first : null)
-        : state.patients.firstWhere((p) => p.id == _moodPatientId);
+    final patient = patients.where((p) => p.id == _moodPatientId).isEmpty
+        ? (patients.isNotEmpty ? patients.first : null)
+        : patients.firstWhere((p) => p.id == _moodPatientId);
     final data = state.patientMoodData[_moodPatientId] ?? [];
 
     return Column(
@@ -37,9 +42,9 @@ class _DoctorMoodTabState extends ConsumerState<DoctorMoodTab> {
           title: 'Mood Trends',
           onBack: widget.onBack,
         ),
-        if (state.patients.isNotEmpty)
+        if (patients.isNotEmpty)
           PatientSelector(
-            patients: state.patients,
+            patients: patients,
             selectedId: _moodPatientId,
             onSelect: (id) => setState(() => _moodPatientId = id),
           ),

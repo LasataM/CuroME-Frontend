@@ -19,6 +19,7 @@ class DoctorHomeTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(appStateProvider);
+    final patients = state.doctorVisiblePatients;
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,40 +66,55 @@ class DoctorHomeTab extends ConsumerWidget {
               ],
             ),
           ),
-          PatientSelector(
-            patients: state.patients,
-            selectedId: state.selectedPatientId,
-            onSelect: (id) => state.selectedPatientId = id,
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.5,
-              children: [
-                _quickCard('Appointments', Icons.calendar_month,
-                    AppColors.indigo, () => onNavigate(DoctorTab.appointments)),
-                _quickCard('Mood Trends', Icons.trending_up, AppColors.purple,
-                    () => onNavigate(DoctorTab.mood)),
-                _quickCard(
-                    'Suggestions',
-                    Icons.medication,
-                    Colors.green.shade700,
-                    () => onNavigate(DoctorTab.suggestions)),
-                _quickCard(
-                    'Visit Notes',
-                    Icons.description,
-                    Colors.amber.shade700,
-                    () => onNavigate(DoctorTab.visitNotes)),
-                _quickCard('Messages', Icons.message, Colors.blue.shade700,
-                    () => onNavigate(DoctorTab.messages)),
-              ],
+          if (patients.isEmpty)
+            const SizedBox(
+              width: double.infinity,
+              child: Center(
+                child: EmptyState(
+                  icon: Icons.person,
+                  text: 'No patients assigned yet.',
+                ),
+              ),
+            )
+          else ...[
+            PatientSelector(
+              patients: patients,
+              selectedId: state.selectedPatientId,
+              onSelect: state.selectPatient,
             ),
-          ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.5,
+                children: [
+                  _quickCard(
+                      'Appointments',
+                      Icons.calendar_month,
+                      AppColors.indigo,
+                      () => onNavigate(DoctorTab.appointments)),
+                  _quickCard('Mood Trends', Icons.trending_up, AppColors.purple,
+                      () => onNavigate(DoctorTab.mood)),
+                  _quickCard(
+                      'Suggestions',
+                      Icons.medication,
+                      Colors.green.shade700,
+                      () => onNavigate(DoctorTab.suggestions)),
+                  _quickCard(
+                      'Visit Notes',
+                      Icons.description,
+                      Colors.amber.shade700,
+                      () => onNavigate(DoctorTab.visitNotes)),
+                  _quickCard('Messages', Icons.message, Colors.blue.shade700,
+                      () => onNavigate(DoctorTab.messages)),
+                ],
+              ),
+            ),
+          ],
           if (state.alertTriggered && state.selectedPatient != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),

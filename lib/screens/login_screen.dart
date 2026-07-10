@@ -82,6 +82,16 @@ class LoginScreen extends ConsumerWidget {
                       context, '/signin',
                       arguments: r),
                 ),
+                const SizedBox(height: 14),
+                RoleCard(
+                  role: Role.clinicAdmin,
+                  label: 'Clinic Admin',
+                  icon: Icons.local_hospital_outlined,
+                  color: AppColors.teal,
+                  onSelect: (r) => Navigator.pushNamed(
+                      context, '/signin',
+                      arguments: r),
+                ),
                 const SizedBox(height: 24),
                 Text(
                   'Role is assigned at account creation',

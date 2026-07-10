@@ -53,10 +53,11 @@ class _DoctorAppointmentsTabState
   }
 
   Widget _appointmentsTab(AppState state) {
+    final visibleSlots = state.doctorScopedSlots;
     final available =
-        state.slots.where((s) => s.status == SlotStatus.available).toList();
+        visibleSlots.where((s) => s.status == SlotStatus.available).toList();
     final cancelled =
-        state.slots.where((s) => s.status == SlotStatus.cancelled).toList();
+        visibleSlots.where((s) => s.status == SlotStatus.cancelled).toList();
 
     return Column(
       children: [

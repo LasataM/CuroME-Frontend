@@ -15,17 +15,19 @@ class PatientMessagesTab extends ConsumerStatefulWidget {
       {super.key, required this.onBack, required this.onHome});
 
   @override
-  ConsumerState<PatientMessagesTab> createState() =>
-      _PatientMessagesTabState();
+  ConsumerState<PatientMessagesTab> createState() => _PatientMessagesTabState();
 }
 
 class _PatientMessagesTabState extends ConsumerState<PatientMessagesTab> {
   bool _inThread = false;
   PtMsgTab _msgTab = PtMsgTab.doctor;
+  String? _selectedDoctorEmail;
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(appStateProvider);
+    final patientId = _patientThreadId(state);
+    final assignedDoctors = state.doctorsForPatient(patientId);
 
     if (!_inThread) {
       return Column(
@@ -39,16 +41,19 @@ class _PatientMessagesTabState extends ConsumerState<PatientMessagesTab> {
           Expanded(
             child: ListView(
               children: [
-                _messageTile(
-                  icon: Icons.medical_services,
-                  color: AppColors.indigo,
-                  title: _doctorName(state),
-                  subtitle: _lastPreview(_doctorThread(state)),
-                  onTap: () => setState(() {
-                    _msgTab = PtMsgTab.doctor;
-                    _inThread = true;
-                  }),
-                ),
+                for (final doctor in assignedDoctors)
+                  _messageTile(
+                    icon: Icons.medical_services,
+                    color: AppColors.indigo,
+                    title: state.doctorDisplayNameForAccount(doctor),
+                    subtitle: _lastPreview(
+                        state.patientDoctorThread(patientId, doctor.email)),
+                    onTap: () => setState(() {
+                      _msgTab = PtMsgTab.doctor;
+                      _selectedDoctorEmail = doctor.email;
+                      _inThread = true;
+                    }),
+                  ),
                 _messageTile(
                   initials: _initialsFor(_caregiverName(state), fallback: 'C'),
                   color: AppColors.emerald,
@@ -67,8 +72,21 @@ class _PatientMessagesTabState extends ConsumerState<PatientMessagesTab> {
     }
 
     final isDoctor = _msgTab == PtMsgTab.doctor;
-    final thread = isDoctor ? _doctorThread(state) : state.cgPatientThread;
-    final title = isDoctor ? _doctorName(state) : _caregiverName(state);
+    final selectedDoctorMatches = assignedDoctors
+        .where((doctor) => doctor.email == _selectedDoctorEmail)
+        .toList();
+    final selectedDoctor =
+        selectedDoctorMatches.isEmpty ? null : selectedDoctorMatches.first;
+    final thread = isDoctor
+        ? (_selectedDoctorEmail == null
+            ? const <ChatMessage>[]
+            : state.patientDoctorThread(patientId, _selectedDoctorEmail!))
+        : state.cgPatientThread;
+    final title = isDoctor
+        ? (selectedDoctor == null
+            ? 'Doctor'
+            : state.doctorDisplayNameForAccount(selectedDoctor))
+        : _caregiverName(state);
     final accent = isDoctor ? AppColors.indigo : AppColors.emerald;
 
     return Column(
@@ -102,13 +120,14 @@ class _PatientMessagesTabState extends ConsumerState<PatientMessagesTab> {
           accentColor: accent,
           onSend: (text) {
             if (isDoctor) {
-              final patientId = _patientThreadId(state);
-              if (patientId.isEmpty) return;
+              final doctorEmail = _selectedDoctorEmail;
+              if (patientId.isEmpty || doctorEmail == null) return;
               state.sendPatientMessage(
                 patientId,
                 text,
                 state.patientFirstName,
                 Role.patient,
+                doctorEmail: doctorEmail,
               );
             } else {
               state.sendPatientCaregiverMessage(text, state.patientFirstName);
@@ -143,20 +162,10 @@ class _PatientMessagesTabState extends ConsumerState<PatientMessagesTab> {
     );
   }
 
-  List<ChatMessage> _doctorThread(AppState state) {
-    final patientId = _patientThreadId(state);
-    if (patientId.isEmpty) return const [];
-    return state.patientMessages[patientId] ?? const [];
-  }
-
   String _patientThreadId(AppState state) {
     if (state.generatedPatientId.isNotEmpty) return state.generatedPatientId;
     if (state.selectedPatientId.isNotEmpty) return state.selectedPatientId;
     return state.selectedPatient?.id ?? '';
-  }
-
-  String _doctorName(AppState state) {
-    return state.linkedDoctorName.isEmpty ? 'Doctor' : state.linkedDoctorName;
   }
 
   String _caregiverName(AppState state) {

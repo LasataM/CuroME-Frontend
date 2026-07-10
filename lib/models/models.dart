@@ -3,7 +3,7 @@ import 'package:uuid/uuid.dart';
 const _uuid = Uuid();
 String newId() => _uuid.v4().substring(0, 8);
 
-enum Role { doctor, caregiver, patient }
+enum Role { doctor, caregiver, patient, clinicAdmin }
 
 Role roleFromString(String s) =>
     Role.values.firstWhere((r) => r.name == s, orElse: () => Role.patient);
@@ -102,6 +102,7 @@ class AppNotification {
   final String time;
   bool read;
   final Role role;
+  final String? targetAccountEmail;
 
   AppNotification({
     required this.id,
@@ -109,6 +110,7 @@ class AppNotification {
     required this.time,
     this.read = false,
     required this.role,
+    this.targetAccountEmail,
   });
 }
 
@@ -144,6 +146,20 @@ class StoredAccount {
     this.licenseNumber,
     this.linkedPatientId,
     this.patientId,
+  });
+}
+
+class PatientDoctorAssignment {
+  final String id;
+  final String patientId;
+  final String doctorEmail;
+  final String assignedAt;
+
+  PatientDoctorAssignment({
+    required this.id,
+    required this.patientId,
+    required this.doctorEmail,
+    required this.assignedAt,
   });
 }
 
@@ -264,6 +280,7 @@ class Reminder {
 class PatientSuggestion {
   final String id;
   final String patientId;
+  final String? doctorEmail;
   final String type; // activity | medication | followup
   final String text;
   final String rationale;
@@ -273,6 +290,7 @@ class PatientSuggestion {
   PatientSuggestion({
     required this.id,
     required this.patientId,
+    this.doctorEmail,
     required this.type,
     required this.text,
     required this.rationale,

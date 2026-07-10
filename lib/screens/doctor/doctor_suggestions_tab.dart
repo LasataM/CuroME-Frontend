@@ -32,7 +32,15 @@ class _DoctorSuggestionsTabState extends ConsumerState<DoctorSuggestionsTab> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(appStateProvider);
-    final patient = state.selectedPatient;
+    final patients = state.doctorVisiblePatients;
+    if (patients.isNotEmpty &&
+        !patients.any((patient) => patient.id == state.selectedPatientId)) {
+      state.selectedPatientId = patients.first.id;
+    }
+    final patient =
+        patients.where((p) => p.id == state.selectedPatientId).isEmpty
+            ? null
+            : patients.firstWhere((p) => p.id == state.selectedPatientId);
     final current = state.suggestions
         .where((s) => s.patientId == state.selectedPatientId)
         .toList();
@@ -49,7 +57,7 @@ class _DoctorSuggestionsTabState extends ConsumerState<DoctorSuggestionsTab> {
           ),
         ),
         PatientSelector(
-          patients: state.patients,
+          patients: patients,
           selectedId: state.selectedPatientId,
           onSelect: (id) => setState(() => state.selectedPatientId = id),
         ),
@@ -162,6 +170,7 @@ class _DoctorSuggestionsTabState extends ConsumerState<DoctorSuggestionsTab> {
                 state.addSuggestion(PatientSuggestion(
                   id: newId(),
                   patientId: patient.id,
+                  doctorEmail: state.currentAccountEmail,
                   type: _suggType,
                   text: _suggTextCtrl.text.trim(),
                   rationale: _suggRationaleCtrl.text.trim().isEmpty

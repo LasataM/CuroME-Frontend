@@ -58,7 +58,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       ? AppColors.indigo
       : _role == Role.caregiver
           ? AppColors.emerald
-          : AppColors.purple;
+          : _role == Role.clinicAdmin
+              ? AppColors.teal
+              : AppColors.purple;
 
   Future<void> _submit() async {
     final errors = <String, String>{};
@@ -141,18 +143,29 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       Navigator.pushReplacementNamed(context, '/signup_success');
     } else if (_role == Role.doctor) {
       Navigator.pushReplacementNamed(context, '/doctor');
+    } else if (_role == Role.clinicAdmin) {
+      Navigator.pushReplacementNamed(context, '/clinic');
     } else {
       Navigator.pushReplacementNamed(context, '/caregiver');
     }
   }
 
+  String _roleLabel(Role role) {
+    switch (role) {
+      case Role.doctor:
+        return 'Doctor';
+      case Role.caregiver:
+        return 'Caregiver';
+      case Role.patient:
+        return 'Patient';
+      case Role.clinicAdmin:
+        return 'Clinic Admin';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final roleLabel = _role == Role.doctor
-        ? 'Doctor'
-        : _role == Role.caregiver
-            ? 'Caregiver'
-            : 'Patient';
+    final roleLabel = _roleLabel(_role);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F3FF),
