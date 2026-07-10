@@ -241,7 +241,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       if (_errors['gender'] != null) _err(_errors['gender']!),
                       _field('Phone Number', _phoneCtrl, '+977 9841234567',
                           type: TextInputType.phone, error: _errors['phone']),
-                      _field('Email Address', _emailCtrl, 'name@email.com',
+                      _field('Email Address', _emailCtrl, 'henry@email.com',
                           type: TextInputType.emailAddress,
                           error: _errors['email']),
 

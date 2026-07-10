@@ -183,7 +183,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       _label('Email Address'),
                       _field(
                         controller: _emailCtrl,
-                        hint: 'name@email.com',
+                        hint: 'henry@email.com',
                         keyboardType: TextInputType.emailAddress,
                         error: _errors['email'],
                         onChanged: (_) => setState(() => _authError = null),
