@@ -147,6 +147,23 @@ class StoredAccount {
     this.linkedPatientId,
     this.patientId,
   });
+
+  /// Converts this model to a JSON map for the FastAPI /auth/register endpoint.
+  Map<String, dynamic> toJson() {
+    return {
+      'email': email,
+      'password': password,
+      'role': role.name, // Converts enum (e.g., Role.doctor) to string ('doctor')
+      'name': name,
+      'age': age,
+      'gender': gender,
+      'phone': phone,
+      'specialization': specialization,
+      'licenseNumber': licenseNumber, // Matches alias in backend schemas.py
+      'linkedPatientId': linkedPatientId, // Matches alias in backend schemas.py
+      'patientId': patientId,
+    };
+  }
 }
 
 class PatientDoctorAssignment {
