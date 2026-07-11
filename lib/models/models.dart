@@ -57,6 +57,7 @@ class AppointmentSlot {
   SlotStatus status;
   String? patientId;
   String? caregiverId;
+  String? caregiverEmail;
   String? title;
   FollowUpSchedule? followUpSchedule;
   String? cancelReason;
@@ -75,6 +76,7 @@ class AppointmentSlot {
     this.status = SlotStatus.available,
     this.patientId,
     this.caregiverId,
+    this.caregiverEmail,
     this.title,
     this.followUpSchedule,
     this.cancelReason,
@@ -278,6 +280,7 @@ class VisitNote {
 
 class Reminder {
   final String id;
+  final String? patientId;
   final String type; // medication | appointment
   final String label;
   final String date;
@@ -287,6 +290,7 @@ class Reminder {
 
   Reminder({
     required this.id,
+    this.patientId,
     required this.type,
     required this.label,
     this.date = '',

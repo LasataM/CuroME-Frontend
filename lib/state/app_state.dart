@@ -602,15 +602,33 @@ class AppState extends ChangeNotifier {
   }
 
   bool _slotBelongsToCurrentDoctor(AppointmentSlot slot) {
-    if (slot.doctorId == currentAccountEmail ||
-        slot.doctorId == session?.name ||
-        slot.doctorId == doctorDisplayName) {
-      return true;
+    return slot.doctorId == currentAccountEmail;
+  }
+
+  String? _caregiverEmailForSlot(AppointmentSlot slot) {
+    if (slot.caregiverEmail != null && slot.caregiverEmail!.isNotEmpty) {
+      return slot.caregiverEmail;
     }
     final patientId = slot.patientId;
-    if (patientId == null || patientId.isEmpty) return false;
-    return assignmentsForPatient(patientId)
-        .any((assignment) => assignment.doctorEmail == currentAccountEmail);
+    if (patientId == null || patientId.isEmpty || slot.caregiverId == null) {
+      return null;
+    }
+    final matches = caregiversForPatient(patientId)
+        .where((account) => _firstName(account.name) == slot.caregiverId)
+        .toList();
+    return matches.length == 1 ? matches.first.email : null;
+  }
+
+  void _notifyBookingCaregiver(AppointmentSlot slot, String text) {
+    final caregiverEmail = _caregiverEmailForSlot(slot);
+    if (caregiverEmail == null) return;
+    pushNotification(text, Role.caregiver, targetAccountEmail: caregiverEmail);
+  }
+
+  void _notifyCaregiversForPatient(String patientId, String text) {
+    for (final caregiverEmail in caregiverEmailsForPatient(patientId)) {
+      pushNotification(text, Role.caregiver, targetAccountEmail: caregiverEmail);
+    }
   }
 
   String? assignedDoctorEmailForPatient(String patientId) =>
@@ -698,8 +716,8 @@ class AppState extends ChangeNotifier {
     pushNotification('A patient has been assigned to your care.', Role.doctor,
         targetAccountEmail: doctorEmail);
     pushNotification('Your clinic assigned a doctor.', Role.patient);
-    pushNotification(
-        'Your patient has a clinic doctor assignment.', Role.caregiver);
+    _notifyCaregiversForPatient(
+        patientId, 'Your patient has a clinic doctor assignment.');
     notifyListeners();
   }
 
@@ -841,8 +859,10 @@ class AppState extends ChangeNotifier {
     required String time,
     DateTime? dueAt,
   }) {
+    final patientId = _activePatientIdForCurrentUser;
     final reminder = Reminder(
       id: newId(),
+      patientId: patientId.isEmpty ? null : patientId,
       type: 'medication',
       label: label,
       date: date,
@@ -851,8 +871,10 @@ class AppState extends ChangeNotifier {
     );
     reminders.add(reminder);
     _scheduleMedicationNotice(reminder);
-    pushNotification(
-        'Medication reminder added: $label on $date at $time.', Role.caregiver);
+    if (patientId.isNotEmpty) {
+      _notifyCaregiversForPatient(
+          patientId, 'Medication reminder added: $label on $date at $time.');
+    }
     pushNotification('New medicine reminder: $label at $time.', Role.patient);
     notifyListeners();
   }
@@ -868,9 +890,11 @@ class AppState extends ChangeNotifier {
     if (index == -1) return;
     final reminder = reminders.removeAt(index);
     _reminderTimers.remove(id)?.cancel();
-    pushNotification(
-        '${patientFirstName.isEmpty ? "Patient" : patientFirstName} took ${reminder.label}.',
-        Role.caregiver);
+    final patientId = reminder.patientId ?? _activePatientIdForCurrentUser;
+    if (patientId.isNotEmpty) {
+      _notifyCaregiversForPatient(patientId,
+          '${patientFirstName.isEmpty ? "Patient" : patientFirstName} took ${reminder.label}.');
+    }
     notifyListeners();
   }
 
@@ -893,7 +917,11 @@ class AppState extends ChangeNotifier {
       final message =
           '${reminder.label} is due at ${reminder.time}${reminder.date.isEmpty ? "" : " on ${reminder.date}"}.';
       pushNotification('Medicine reminder: $message', Role.patient);
-      pushNotification('Patient medicine reminder: $message', Role.caregiver);
+      final patientId = reminder.patientId ?? _activePatientIdForCurrentUser;
+      if (patientId.isNotEmpty) {
+        _notifyCaregiversForPatient(
+            patientId, 'Patient medicine reminder: $message');
+      }
       NotificationService.instance.showLocalNotification(
         id: reminder.id.hashCode,
         title: 'Medicine reminder',
@@ -1084,9 +1112,8 @@ class AppState extends ChangeNotifier {
     s.status = SlotStatus.confirmed;
     s.escalated = false;
     s.addLog('Booking approved', doctorDisplayName, 'doctor');
-    pushNotification(
-        'Your booking request has been approved by $doctorDisplayName.',
-        Role.caregiver);
+    _notifyBookingCaregiver(
+        s, 'Your booking request has been approved by $doctorDisplayName.');
     pushNotification('Your appointment has been confirmed.', Role.patient);
     notifyListeners();
   }
@@ -1096,12 +1123,12 @@ class AppState extends ChangeNotifier {
     s.status = SlotStatus.available;
     s.cancelReason = reason;
     s.escalated = false;
-    s.caregiverId = null;
-    s.patientId = null;
     s.addLog('Booking declined', doctorDisplayName, 'doctor', note: reason);
-    pushNotification(
-        'Your booking request was declined by $doctorDisplayName. Reason: $reason',
-        Role.caregiver);
+    _notifyBookingCaregiver(s,
+        'Your booking request was declined by $doctorDisplayName. Reason: $reason');
+    s.caregiverId = null;
+    s.caregiverEmail = null;
+    s.patientId = null;
     notifyListeners();
   }
 
@@ -1114,9 +1141,8 @@ class AppState extends ChangeNotifier {
     s.cancelReason = cleanReason;
     s.addLog('Appointment cancelled by doctor', doctorDisplayName, 'doctor',
         note: cleanReason);
-    pushNotification(
-        'Your appointment has been cancelled by $doctorDisplayName. Reason: $cleanReason',
-        Role.caregiver);
+    _notifyBookingCaregiver(s,
+        'Your appointment has been cancelled by $doctorDisplayName. Reason: $cleanReason');
     pushNotification(
         'Your appointment has been cancelled. Reason: $cleanReason',
         Role.patient);
@@ -1148,9 +1174,8 @@ class AppState extends ChangeNotifier {
     s.addLog('Cancellation approved', doctorDisplayName, 'doctor',
         note: s.cancelReason);
     slots.add(replacement);
-    pushNotification(
-        'Your cancellation request for ${s.date} at ${s.time} was approved by $doctorDisplayName. Reason: ${s.cancelReason ?? "No reason provided."}',
-        Role.caregiver);
+    _notifyBookingCaregiver(s,
+        'Your cancellation request for ${s.date} at ${s.time} was approved by $doctorDisplayName. Reason: ${s.cancelReason ?? "No reason provided."}');
     pushNotification(
         'Your appointment on ${s.date} at ${s.time} has been cancelled. Reason: ${s.cancelReason ?? "No reason provided."}',
         Role.patient);
@@ -1163,9 +1188,8 @@ class AppState extends ChangeNotifier {
     s.escalated = false;
     s.addLog('Cancellation request declined', doctorDisplayName, 'doctor',
         note: reason);
-    pushNotification(
-        'Your cancellation request for ${s.date} at ${s.time} was declined by $doctorDisplayName. Reason: $reason',
-        Role.caregiver);
+    _notifyBookingCaregiver(s,
+        'Your cancellation request for ${s.date} at ${s.time} was declined by $doctorDisplayName. Reason: $reason');
     notifyListeners();
   }
 
@@ -1175,9 +1199,8 @@ class AppState extends ChangeNotifier {
     s.date = newDate;
     s.time = newTime;
     s.addLog('Slot modified', doctorDisplayName, 'doctor');
-    pushNotification(
-        '$doctorDisplayName modified your appointment to $newDate at $newTime.',
-        Role.caregiver);
+    _notifyBookingCaregiver(
+        s, '$doctorDisplayName modified your appointment to $newDate at $newTime.');
     pushNotification(
         'Your appointment has been updated to $newDate at $newTime.',
         Role.patient);
@@ -1191,6 +1214,7 @@ class AppState extends ChangeNotifier {
         : (patients.isNotEmpty ? patients.first.id : '');
     s.status = SlotStatus.pendingDoctor;
     s.caregiverId = caregiverFirstName;
+    s.caregiverEmail = currentAccountEmail;
     s.patientId = patientId;
     s.addLog('Booking requested by caregiver', caregiverFirstName, 'caregiver');
     pushNotification(

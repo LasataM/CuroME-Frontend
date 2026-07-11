@@ -135,6 +135,12 @@ class _CaregiverVisitNotesTabState
                       children: [
                         Text(n.note, style: const TextStyle(fontSize: 13)),
                         const SizedBox(height: 6),
+                        Text(
+                          'Sent to: ${state.doctorDisplayNameForEmail(n.doctorEmail)}',
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.grey.shade600),
+                        ),
+                        const SizedBox(height: 4),
                         Row(
                           children: [
                             Icon(Icons.access_time,
