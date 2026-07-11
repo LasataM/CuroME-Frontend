@@ -22,12 +22,14 @@ class _PatientMessagesTabState extends ConsumerState<PatientMessagesTab> {
   bool _inThread = false;
   PtMsgTab _msgTab = PtMsgTab.doctor;
   String? _selectedDoctorEmail;
+  String? _selectedCaregiverEmail;
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(appStateProvider);
     final patientId = _patientThreadId(state);
     final assignedDoctors = state.doctorsForPatient(patientId);
+    final caregivers = state.caregiversForPatient(patientId);
 
     if (!_inThread) {
       return Column(
@@ -54,16 +56,19 @@ class _PatientMessagesTabState extends ConsumerState<PatientMessagesTab> {
                       _inThread = true;
                     }),
                   ),
-                _messageTile(
-                  initials: _initialsFor(_caregiverName(state), fallback: 'C'),
-                  color: AppColors.emerald,
-                  title: _caregiverName(state),
-                  subtitle: _lastPreview(state.cgPatientThread),
-                  onTap: () => setState(() {
-                    _msgTab = PtMsgTab.caregiver;
-                    _inThread = true;
-                  }),
-                ),
+                for (final caregiver in caregivers)
+                  _messageTile(
+                    initials: _initialsFor(caregiver.name, fallback: 'C'),
+                    color: AppColors.emerald,
+                    title: caregiver.name,
+                    subtitle: _lastPreview(state.caregiverPatientThread(patientId,
+                        caregiverEmail: caregiver.email)),
+                    onTap: () => setState(() {
+                      _msgTab = PtMsgTab.caregiver;
+                      _selectedCaregiverEmail = caregiver.email;
+                      _inThread = true;
+                    }),
+                  ),
               ],
             ),
           ),
@@ -81,12 +86,16 @@ class _PatientMessagesTabState extends ConsumerState<PatientMessagesTab> {
         ? (_selectedDoctorEmail == null
             ? const <ChatMessage>[]
             : state.patientDoctorThread(patientId, _selectedDoctorEmail!))
-        : state.cgPatientThread;
+        : state.caregiverPatientThread(patientId,
+            caregiverEmail: _selectedCaregiverEmail);
+    final selectedCaregiver = caregivers
+        .where((caregiver) => caregiver.email == _selectedCaregiverEmail)
+        .toList();
     final title = isDoctor
         ? (selectedDoctor == null
             ? 'Doctor'
             : state.doctorDisplayNameForAccount(selectedDoctor))
-        : _caregiverName(state);
+        : (selectedCaregiver.isEmpty ? 'Caregiver' : selectedCaregiver.first.name);
     final accent = isDoctor ? AppColors.indigo : AppColors.emerald;
 
     return Column(
@@ -130,7 +139,10 @@ class _PatientMessagesTabState extends ConsumerState<PatientMessagesTab> {
                 doctorEmail: doctorEmail,
               );
             } else {
-              state.sendPatientCaregiverMessage(text, state.patientFirstName);
+              final caregiverEmail = _selectedCaregiverEmail;
+              if (caregiverEmail == null) return;
+              state.sendPatientCaregiverMessage(text, state.patientFirstName,
+                  caregiverEmail: caregiverEmail);
             }
           },
         ),

@@ -13,14 +13,16 @@ class CaregiverMoodTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(appStateProvider);
-    final recent = state.moodHistory.length > 7
-        ? state.moodHistory.sublist(state.moodHistory.length - 7)
-        : state.moodHistory;
+    final moodHistory =
+        state.patientMoodData[state.linkedCaregiverPatientId] ?? const [];
+    final recent = moodHistory.length > 7
+        ? moodHistory.sublist(moodHistory.length - 7)
+        : moodHistory;
     return Column(
       children: [
         PageHeader(title: 'Mood Check-ins', onBack: onBack),
         Expanded(
-          child: state.moodHistory.isEmpty
+          child: moodHistory.isEmpty
               ? const EmptyState(
                   icon: Icons.trending_up, text: 'No mood data yet.')
               : ListView(
@@ -28,7 +30,7 @@ class CaregiverMoodTab extends ConsumerWidget {
                   children: [
                     MoodAreaChart(data: recent, label: '7-Day Mood Timeline'),
                     const SizedBox(height: 16),
-                    for (final entry in state.moodHistory.reversed)
+                    for (final entry in moodHistory.reversed)
                       Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.all(12),

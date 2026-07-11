@@ -17,6 +17,7 @@ class CaregiverVisitNotesTab extends ConsumerStatefulWidget {
 class _CaregiverVisitNotesTabState
     extends ConsumerState<CaregiverVisitNotesTab> {
   final _noteCtrl = TextEditingController();
+  String? _selectedDoctorEmail;
 
   @override
   void dispose() {
@@ -28,6 +29,10 @@ class _CaregiverVisitNotesTabState
   Widget build(BuildContext context) {
     final state = ref.watch(appStateProvider);
     final patientId = state.linkedCaregiverPatientId;
+    final doctors = state.doctorsForPatient(patientId);
+    if (!doctors.any((doctor) => doctor.email == _selectedDoctorEmail)) {
+      _selectedDoctorEmail = doctors.isEmpty ? null : doctors.first.email;
+    }
     final notes = state.visitNotesForPatient(patientId).reversed.toList();
 
     return Column(
@@ -60,12 +65,36 @@ class _CaregiverVisitNotesTabState
                           fillColor: Colors.white),
                     ),
                     const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: _selectedDoctorEmail,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Send to doctor',
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                      items: doctors
+                          .map((doctor) => DropdownMenuItem(
+                                value: doctor.email,
+                                child: Text(
+                                    state.doctorDisplayNameForAccount(doctor)),
+                              ))
+                          .toList(),
+                      onChanged: doctors.isEmpty
+                          ? null
+                          : (value) =>
+                              setState(() => _selectedDoctorEmail = value),
+                    ),
+                    const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
                           if (_noteCtrl.text.trim().isEmpty) return;
-                          state.addVisitNote(_noteCtrl.text.trim());
+                          final doctorEmail = _selectedDoctorEmail;
+                          if (doctorEmail == null) return;
+                          state.addVisitNote(_noteCtrl.text.trim(),
+                              doctorEmail: doctorEmail);
                           _noteCtrl.clear();
                           setState(() {});
                         },

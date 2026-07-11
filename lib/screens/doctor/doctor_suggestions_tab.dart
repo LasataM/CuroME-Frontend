@@ -41,9 +41,8 @@ class _DoctorSuggestionsTabState extends ConsumerState<DoctorSuggestionsTab> {
         patients.where((p) => p.id == state.selectedPatientId).isEmpty
             ? null
             : patients.firstWhere((p) => p.id == state.selectedPatientId);
-    final current = state.suggestions
-        .where((s) => s.patientId == state.selectedPatientId)
-        .toList();
+    final current = state.suggestionsForPatientAndDoctor(
+        state.selectedPatientId, state.currentAccountEmail);
 
     return Column(
       children: [

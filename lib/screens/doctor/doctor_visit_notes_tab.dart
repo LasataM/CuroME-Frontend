@@ -22,8 +22,11 @@ class DoctorVisitNotesTab extends ConsumerWidget {
         patients.where((p) => p.id == state.selectedPatientId).isEmpty
             ? null
             : patients.firstWhere((p) => p.id == state.selectedPatientId);
-    final notes =
-        state.visitNotesForPatient(state.selectedPatientId).reversed.toList();
+    final notes = state
+        .visitNotesForPatientAndDoctor(
+            state.selectedPatientId, state.currentAccountEmail)
+        .reversed
+        .toList();
 
     return Column(
       children: [

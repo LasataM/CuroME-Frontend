@@ -49,7 +49,7 @@ class AppState extends ChangeNotifier {
   final Map<String, List<ChatMessage>> patientMessages = {};
   final Map<String, List<ChatMessage>> docCgThreads = {};
   final List<ChatMessage> cgDoctorThread = [];
-  final List<ChatMessage> cgPatientThread = [];
+  final Map<String, List<ChatMessage>> caregiverPatientThreads = {};
   final List<Reminder> reminders = [];
   final List<PatientSuggestion> suggestions = [];
   final List<VisitNote> visitNotes = [];
@@ -379,8 +379,8 @@ class AppState extends ChangeNotifier {
 
   List<AppNotification> notificationsFor(Role r) => notifications.where((n) {
         if (n.role != r) return false;
-        if (r != Role.doctor) return true;
-        return n.targetAccountEmail == currentAccountEmail;
+        return n.targetAccountEmail == null ||
+            n.targetAccountEmail == currentAccountEmail;
       }).toList();
   int unreadCountFor(Role r) =>
       notificationsFor(r).where((n) => !n.read).length;
@@ -404,6 +404,13 @@ class AppState extends ChangeNotifier {
 
   List<VisitNote> visitNotesForPatient(String patientId) =>
       visitNotes.where((note) => note.patientId == patientId).toList();
+
+  List<VisitNote> visitNotesForPatientAndDoctor(
+          String patientId, String doctorEmail) =>
+      visitNotes
+          .where((note) =>
+              note.patientId == patientId && note.doctorEmail == doctorEmail)
+          .toList();
 
   List<StoredAccount> get doctorAccounts =>
       storedAccounts.where((account) => account.role == Role.doctor).toList();
@@ -492,6 +499,14 @@ class AppState extends ChangeNotifier {
       return 'Not linked';
     }
   }
+
+  List<StoredAccount> caregiversForPatient(String patientId) => storedAccounts
+      .where((account) =>
+          account.role == Role.caregiver && account.linkedPatientId == patientId)
+      .toList();
+
+  List<String> caregiverEmailsForPatient(String patientId) =>
+      caregiversForPatient(patientId).map((account) => account.email).toList();
 
   int patientLoadForDoctor(String doctorEmail) =>
       assignments.where((a) => a.doctorEmail == doctorEmail).length;
@@ -644,6 +659,21 @@ class AppState extends ChangeNotifier {
   List<ChatMessage> patientDoctorThread(String patientId, String doctorEmail) =>
       patientMessages[
           _patientDoctorThreadKey(patientId, doctorEmail: doctorEmail)] ??
+       const [];
+
+  String _caregiverPatientThreadKey(String patientId, {String? caregiverEmail}) {
+    final resolvedCaregiverEmail = caregiverEmail ??
+        (role == Role.caregiver ? currentAccountEmail : null);
+    if (resolvedCaregiverEmail == null || resolvedCaregiverEmail.isEmpty) {
+      return patientId;
+    }
+    return '$resolvedCaregiverEmail::$patientId';
+  }
+
+  List<ChatMessage> caregiverPatientThread(String patientId,
+          {String? caregiverEmail}) =>
+      caregiverPatientThreads[
+          _caregiverPatientThreadKey(patientId, caregiverEmail: caregiverEmail)] ??
       const [];
 
   void selectPatient(String patientId) {
@@ -886,25 +916,24 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addVisitNote(String text) {
+  void addVisitNote(String text, {required String doctorEmail}) {
     final patientId = linkedCaregiverPatientId.isNotEmpty
         ? linkedCaregiverPatientId
         : selectedPatientId;
-    if (patientId.isEmpty) return;
+    if (patientId.isEmpty || doctorEmail.isEmpty) return;
     visitNotes.add(VisitNote(
       id: newId(),
       patientId: patientId,
+      doctorEmail: doctorEmail,
       note: text,
       timestamp:
           '${DateFormat('MMM d, y').format(DateTime.now())} - ${nowTime()}',
       from: session?.name ?? 'Caregiver',
     ));
-    for (final doctorEmail in assignedDoctorEmailsForPatient(patientId)) {
-      pushNotification(
-          '${caregiverFirstName.isEmpty ? "Caregiver" : caregiverFirstName} published a visit note.',
-          Role.doctor,
-          targetAccountEmail: doctorEmail);
-    }
+    pushNotification(
+        '${caregiverFirstName.isEmpty ? "Caregiver" : caregiverFirstName} published a visit note.',
+        Role.doctor,
+        targetAccountEmail: doctorEmail);
     notifyListeners();
   }
 
@@ -973,7 +1002,11 @@ class AppState extends ChangeNotifier {
   }
 
   void sendCgPatientMessage(String text, String from) {
-    cgPatientThread.add(ChatMessage(
+    final patientId = linkedCaregiverPatientId;
+    if (patientId.isEmpty || currentAccountEmail.isEmpty) return;
+    caregiverPatientThreads
+        .putIfAbsent(_caregiverPatientThreadKey(patientId), () => [])
+        .add(ChatMessage(
         id: newId(),
         from: from,
         text: text,
@@ -982,8 +1015,15 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void sendPatientCaregiverMessage(String text, String from) {
-    cgPatientThread.add(ChatMessage(
+  void sendPatientCaregiverMessage(String text, String from,
+      {required String caregiverEmail}) {
+    final patientId = _activePatientIdForCurrentUser;
+    if (patientId.isEmpty) return;
+    caregiverPatientThreads
+        .putIfAbsent(
+            _caregiverPatientThreadKey(patientId, caregiverEmail: caregiverEmail),
+            () => [])
+        .add(ChatMessage(
         id: newId(),
         from: from,
         text: text,

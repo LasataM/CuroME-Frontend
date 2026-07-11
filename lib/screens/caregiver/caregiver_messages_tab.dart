@@ -61,7 +61,9 @@ class _CaregiverMessagesTabState extends ConsumerState<CaregiverMessagesTab> {
                     }),
                   ),
                 if (state.linkedPatientName.isNotEmpty ||
-                    state.cgPatientThread.isNotEmpty)
+                    state
+                        .caregiverPatientThread(state.linkedCaregiverPatientId)
+                        .isNotEmpty)
                   ListTile(
                     leading: CircleAvatar(
                       backgroundColor: AppColors.purple,
@@ -83,8 +85,15 @@ class _CaregiverMessagesTabState extends ConsumerState<CaregiverMessagesTab> {
                             : state.linkedPatientName,
                         style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text(
-                        state.cgPatientThread.isNotEmpty
-                            ? state.cgPatientThread.last.text
+                        state
+                                .caregiverPatientThread(
+                                    state.linkedCaregiverPatientId)
+                                .isNotEmpty
+                            ? state
+                                .caregiverPatientThread(
+                                    state.linkedCaregiverPatientId)
+                                .last
+                                .text
                             : 'Tap to start a conversation',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
@@ -110,7 +119,7 @@ class _CaregiverMessagesTabState extends ConsumerState<CaregiverMessagesTab> {
         ? (_selectedDoctorEmail == null
             ? const <ChatMessage>[]
             : state.caregiverDoctorThreadFor(_selectedDoctorEmail!))
-        : state.cgPatientThread;
+        : state.caregiverPatientThread(state.linkedCaregiverPatientId);
     return Column(
       children: [
         PageHeader(

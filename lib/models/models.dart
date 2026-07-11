@@ -261,6 +261,7 @@ class ChatMessage {
 class VisitNote {
   final String id;
   final String patientId;
+  final String doctorEmail;
   final String note;
   final String timestamp;
   final String from;
@@ -268,6 +269,7 @@ class VisitNote {
   VisitNote({
     required this.id,
     required this.patientId,
+    required this.doctorEmail,
     required this.note,
     required this.timestamp,
     required this.from,
