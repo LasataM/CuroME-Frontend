@@ -12,6 +12,7 @@ import 'package:curome/screens/caregiver/caregiver_mood_tab.dart';
 import 'package:curome/screens/caregiver/caregiver_visit_notes_tab.dart';
 import 'package:curome/screens/caregiver/caregiver_reminders_tab.dart';
 import 'package:curome/screens/caregiver/caregiver_messages_tab.dart';
+import 'package:curome/screens/profile_screen.dart';
 
 class CaregiverHomeScreen extends ConsumerStatefulWidget {
   const CaregiverHomeScreen({super.key});
@@ -36,6 +37,11 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen> {
         child: Stack(
           children: [
             _buildTab(),
+            Positioned(
+              top: 8,
+              right: 10,
+              child: _profileButton(context),
+            ),
             if (_showNotifications) _notificationsOverlay(state),
           ],
         ),
@@ -43,6 +49,19 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen> {
       bottomNavigationBar: _bottomNav(),
     );
   }
+
+  Widget _profileButton(BuildContext context) => Material(
+        color: Colors.white.withValues(alpha: 0.92),
+        shape: const CircleBorder(),
+        child: IconButton(
+          tooltip: 'Profile',
+          icon: const Icon(Icons.account_circle, color: AppColors.emerald),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ProfileScreen()),
+          ),
+        ),
+      );
 
   Widget _buildTab() {
     switch (_tab) {

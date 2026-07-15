@@ -11,6 +11,7 @@ import 'package:curome/screens/doctor/doctor_mood_tab.dart';
 import 'package:curome/screens/doctor/doctor_suggestions_tab.dart';
 import 'package:curome/screens/doctor/doctor_visit_notes_tab.dart';
 import 'package:curome/screens/doctor/doctor_messages_tab.dart';
+import 'package:curome/screens/profile_screen.dart';
 
 class DoctorHomeScreen extends ConsumerStatefulWidget {
   const DoctorHomeScreen({super.key});
@@ -34,6 +35,11 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
         child: Stack(
           children: [
             _buildTab(),
+            Positioned(
+              top: 8,
+              right: 10,
+              child: _profileButton(context),
+            ),
             if (_showNotifications) _notificationsOverlay(state),
           ],
         ),
@@ -41,6 +47,19 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
       bottomNavigationBar: _bottomNav(),
     );
   }
+
+  Widget _profileButton(BuildContext context) => Material(
+        color: Colors.white.withValues(alpha: 0.92),
+        shape: const CircleBorder(),
+        child: IconButton(
+          tooltip: 'Profile',
+          icon: const Icon(Icons.account_circle, color: AppColors.indigo),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ProfileScreen()),
+          ),
+        ),
+      );
 
   Widget _buildTab() {
     switch (_tab) {

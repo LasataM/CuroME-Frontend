@@ -12,6 +12,7 @@ import 'package:curome/screens/patient/patient_medicines_tab.dart';
 import 'package:curome/screens/patient/patient_appointments_tab.dart';
 import 'package:curome/screens/patient/patient_chatbot_tab.dart';
 import 'package:curome/screens/patient/patient_messages_tab.dart';
+import 'package:curome/screens/profile_screen.dart';
 
 class PatientHomeScreen extends ConsumerStatefulWidget {
   const PatientHomeScreen({super.key});
@@ -112,6 +113,22 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
       body: Stack(
         children: [
           _buildTab(),
+          Positioned(
+            top: 8,
+            right: 10,
+            child: Material(
+              color: Colors.white.withValues(alpha: 0.92),
+              shape: const CircleBorder(),
+              child: IconButton(
+                tooltip: 'Profile',
+                icon: const Icon(Icons.account_circle, color: AppColors.purple),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                ),
+              ),
+            ),
+          ),
           if (!_moodSubmitted && state.shouldShowMoodCheck)
             _buildMoodModal(state),
           if (_moodToastVisible) _buildMoodToast(),

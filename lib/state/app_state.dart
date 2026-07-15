@@ -165,6 +165,8 @@ class AppState extends ChangeNotifier {
         'licenseNumber': account.licenseNumber,
         'linkedPatientId': account.linkedPatientId,
         'patientId': account.patientId,
+        'patientSymptoms': account.patientSymptoms,
+        'otherPatientSymptoms': account.otherPatientSymptoms,
       };
 
   StoredAccount _accountFromJson(Map<String, dynamic> json) => StoredAccount(
@@ -181,6 +183,11 @@ class AppState extends ChangeNotifier {
         licenseNumber: json['licenseNumber']?.toString(),
         linkedPatientId: json['linkedPatientId']?.toString(),
         patientId: json['patientId']?.toString(),
+        patientSymptoms: (json['patientSymptoms'] as List?)
+                ?.map((value) => value.toString())
+                .toList() ??
+            const [],
+        otherPatientSymptoms: json['otherPatientSymptoms']?.toString(),
       );
 
   Map<String, dynamic> _assignmentToJson(PatientDoctorAssignment assignment) =>
@@ -508,6 +515,16 @@ class AppState extends ChangeNotifier {
   List<String> caregiverEmailsForPatient(String patientId) =>
       caregiversForPatient(patientId).map((account) => account.email).toList();
 
+  List<String> symptomsForPatient(String patientId) {
+    final symptoms = <String>[];
+    for (final caregiver in caregiversForPatient(patientId)) {
+      symptoms.addAll(caregiver.patientSymptoms);
+      final other = caregiver.otherPatientSymptoms?.trim() ?? '';
+      if (other.isNotEmpty) symptoms.add(other);
+    }
+    return symptoms.toSet().toList();
+  }
+
   int patientLoadForDoctor(String doctorEmail) =>
       assignments.where((a) => a.doctorEmail == doctorEmail).length;
 
@@ -829,6 +846,35 @@ class AppState extends ChangeNotifier {
     role = null;
     currentAccountEmail = '';
     notifyListeners();
+  }
+
+  StoredAccount? get currentAccount {
+    if (currentAccountEmail.isEmpty) return null;
+    try {
+      return storedAccounts
+          .firstWhere((account) => account.email == currentAccountEmail);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> deleteCurrentAccount() async {
+    final account = currentAccount;
+    if (account == null) return;
+
+    storedAccounts.removeWhere((item) => item.email == account.email);
+    assignments.removeWhere((assignment) =>
+        assignment.doctorEmail == account.email ||
+        (account.role == Role.patient &&
+            assignment.patientId == account.patientId));
+    unavailableDoctorEmails.remove(account.email);
+    notifications.removeWhere(
+        (notification) => notification.targetAccountEmail == account.email);
+    _rebuildDirectoryFromAccounts();
+    await _saveAccounts();
+    await _saveAssignments();
+    await _saveDoctorAvailability();
+    logout();
   }
 
   void submitMood(int mood) {

@@ -135,6 +135,9 @@ class StoredAccount {
   final String? licenseNumber;
   final String? linkedPatientId;
   final String? patientId;
+  /// Symptoms recorded by this caregiver for their linked patient.
+  final List<String> patientSymptoms;
+  final String? otherPatientSymptoms;
 
   StoredAccount({
     required this.email,
@@ -148,6 +151,8 @@ class StoredAccount {
     this.licenseNumber,
     this.linkedPatientId,
     this.patientId,
+    this.patientSymptoms = const [],
+    this.otherPatientSymptoms,
   });
 
   /// Converts this model to a JSON map for the FastAPI /auth/register endpoint.
@@ -164,6 +169,8 @@ class StoredAccount {
       'licenseNumber': licenseNumber, // Matches alias in backend schemas.py
       'linkedPatientId': linkedPatientId, // Matches alias in backend schemas.py
       'patientId': patientId,
+      'patientSymptoms': patientSymptoms,
+      'otherPatientSymptoms': otherPatientSymptoms,
     };
   }
 }

@@ -23,6 +23,17 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final _specializationCtrl = TextEditingController();
   final _licenseCtrl = TextEditingController();
   final _linkedPatientCtrl = TextEditingController();
+  final _otherSymptomsCtrl = TextEditingController();
+  final Set<String> _selectedSymptoms = {};
+
+  static const _symptomOptions = [
+    'Memory lapses',
+    'Confusion episodes',
+    'Mood swings',
+    'Sleep disturbances',
+    'Aggression/agitation',
+    'Other',
+  ];
 
   String? _gender;
   bool _showPass = false;
@@ -48,6 +59,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       _specializationCtrl,
       _licenseCtrl,
       _linkedPatientCtrl,
+      _otherSymptomsCtrl,
     ]) {
       c.dispose();
     }
@@ -135,6 +147,13 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
           ? null
           : _linkedPatientCtrl.text.trim(),
       patientId: patientId,
+      patientSymptoms: _selectedSymptoms
+          .where((symptom) => symptom != 'Other')
+          .toList(),
+      otherPatientSymptoms: _selectedSymptoms.contains('Other') &&
+              _otherSymptomsCtrl.text.trim().isNotEmpty
+          ? _otherSymptomsCtrl.text.trim()
+          : null,
     );
 
     state.signUp(account);
@@ -268,6 +287,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                         const SizedBox(height: 6),
                         _field('', _linkedPatientCtrl, 'PAT-123456',
                             error: _errors['linkedPatient']),
+                        _symptomsSection(),
                       ],
 
                       _passwordField('Password', _passwordCtrl, _showPass,
@@ -324,6 +344,57 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _symptomsSection() {
+    final otherSelected = _selectedSymptoms.contains('Other');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Linked patient symptoms',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 3),
+          Text('Select any symptoms you have noticed.',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 2,
+            children: _symptomOptions.map((symptom) {
+              final selected = _selectedSymptoms.contains(symptom);
+              return FilterChip(
+                label: Text(symptom),
+                selected: selected,
+                selectedColor: _accent.withValues(alpha: 0.16),
+                checkmarkColor: _accent,
+                labelStyle: TextStyle(
+                  color: selected ? _accent : Colors.grey.shade700,
+                  fontSize: 12,
+                ),
+                onSelected: (value) => setState(() {
+                  if (value) {
+                    _selectedSymptoms.add(symptom);
+                  } else {
+                    _selectedSymptoms.remove(symptom);
+                    if (symptom == 'Other') _otherSymptomsCtrl.clear();
+                  }
+                }),
+              );
+            }).toList(),
+          ),
+          if (otherSelected) ...[
+            const SizedBox(height: 8),
+            TextField(
+              controller: _otherSymptomsCtrl,
+              maxLines: 2,
+              decoration: _inputDec('Describe other symptoms'),
+            ),
+          ],
+        ],
       ),
     );
   }

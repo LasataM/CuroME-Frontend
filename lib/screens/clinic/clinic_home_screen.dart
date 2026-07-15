@@ -6,6 +6,7 @@ import 'package:curome/models/models.dart';
 import 'package:curome/services/api_service.dart';
 import 'package:curome/state/app_state.dart';
 import 'package:curome/widgets/common_widgets.dart';
+import 'package:curome/screens/profile_screen.dart';
 
 class ClinicHomeScreen extends ConsumerStatefulWidget {
   const ClinicHomeScreen({super.key});
@@ -79,6 +80,14 @@ class _ClinicHomeScreenState extends ConsumerState<ClinicHomeScreen> {
                 ),
               ],
             ),
+          ),
+          IconButton(
+            tooltip: 'Profile',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+            ),
+            icon: const Icon(Icons.account_circle, color: Colors.white, size: 25),
           ),
           IconButton(
             tooltip: 'Logout',
@@ -160,6 +169,7 @@ class _ClinicHomeScreenState extends ConsumerState<ClinicHomeScreen> {
     final state = ref.read(appStateProvider);
     final caregiver = state.caregiverNameForPatient(patient.id);
     final doctor = state.assignedDoctorNamesForPatient(patient.id);
+    final symptoms = state.symptomsForPatient(patient.id);
 
     showDialog(
       context: context,
@@ -174,6 +184,10 @@ class _ClinicHomeScreenState extends ConsumerState<ClinicHomeScreen> {
             _detailLine(
               'Assigned Doctors',
               doctor.isEmpty ? 'Not assigned' : doctor,
+            ),
+            _detailLine(
+              'Reported symptoms',
+              symptoms.isEmpty ? 'None reported' : symptoms.join(', '),
             ),
           ],
         ),
