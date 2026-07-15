@@ -9,11 +9,13 @@ import 'package:curome/screens/doctor/doctor_tab.dart';
 class DoctorHomeTab extends ConsumerWidget {
   final void Function(DoctorTab tab) onNavigate;
   final VoidCallback onShowNotifications;
+  final Widget profileButton;
 
   const DoctorHomeTab({
     super.key,
     required this.onNavigate,
     required this.onShowNotifications,
+    required this.profileButton,
   });
 
   @override
@@ -50,6 +52,8 @@ class DoctorHomeTab extends ConsumerWidget {
                     ],
                   ),
                 ),
+                profileButton,
+                const SizedBox(width: 8),
                 NotificationBell(
                   unreadCount: state.unreadCountFor(Role.doctor),
                   onTap: onShowNotifications,

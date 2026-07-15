@@ -35,11 +35,6 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
         child: Stack(
           children: [
             _buildTab(),
-            Positioned(
-              top: 8,
-              right: 10,
-              child: _profileButton(context),
-            ),
             if (_showNotifications) _notificationsOverlay(state),
           ],
         ),
@@ -63,10 +58,11 @@ class _DoctorHomeScreenState extends ConsumerState<DoctorHomeScreen> {
 
   Widget _buildTab() {
     switch (_tab) {
-      case DoctorTab.home:
+     case DoctorTab.home:
         return DoctorHomeTab(
           onNavigate: _goTo,
           onShowNotifications: () => setState(() => _showNotifications = true),
+          profileButton: _profileButton(context),
         );
       case DoctorTab.appointments:
         return DoctorAppointmentsTab(onBack: () => _goTo(DoctorTab.home));

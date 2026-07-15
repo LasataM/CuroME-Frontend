@@ -113,22 +113,6 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
       body: Stack(
         children: [
           _buildTab(),
-          Positioned(
-            top: 8,
-            right: 10,
-            child: Material(
-              color: Colors.white.withValues(alpha: 0.92),
-              shape: const CircleBorder(),
-              child: IconButton(
-                tooltip: 'Profile',
-                icon: const Icon(Icons.account_circle, color: AppColors.purple),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                ),
-              ),
-            ),
-          ),
           if (!_moodSubmitted && state.shouldShowMoodCheck)
             _buildMoodModal(state),
           if (_moodToastVisible) _buildMoodToast(),
@@ -157,6 +141,18 @@ class _PatientHomeScreenState extends ConsumerState<PatientHomeScreen> {
           moodSubmitted: _moodSubmitted,
           selectedMood: _selectedMood,
           onNavigate: _goTo,
+          profileButton: Material(
+            color: Colors.white.withValues(alpha: 0.2),
+            shape: const CircleBorder(),
+            child: IconButton(
+              tooltip: 'Profile',
+              icon: const Icon(Icons.account_circle, color: Colors.white),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              ),
+            ),
+          ),
         );
       case PatientTab.medicines:
         return PatientMedicinesTab(onBack: _goHome, onHome: _goHome);

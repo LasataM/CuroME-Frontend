@@ -23,12 +23,14 @@ class PatientHomeTab extends ConsumerWidget {
   final bool moodSubmitted;
   final int? selectedMood;
   final void Function(PatientTab tab) onNavigate;
+  final Widget profileButton;
 
   const PatientHomeTab({
     super.key,
     required this.moodSubmitted,
     required this.selectedMood,
     required this.onNavigate,
+    required this.profileButton,
   });
 
   void _confirmReminder(
@@ -124,6 +126,8 @@ class PatientHomeTab extends ConsumerWidget {
                       ],
                     ),
                   ),
+                  profileButton,
+                  const SizedBox(width: 8),
                   IconButton(
                     onPressed: () {
                       state.logout();
@@ -177,7 +181,8 @@ class PatientHomeTab extends ConsumerWidget {
                         ],
                       ),
                     ),
-                  _medicineCard(context, state, nextReminder, reminders, allDone),
+                  _medicineCard(
+                      context, state, nextReminder, reminders, allDone),
                   const SizedBox(height: 12),
                   _navCard(
                     icon: Icons.medication,
