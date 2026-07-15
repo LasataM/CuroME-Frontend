@@ -9,11 +9,13 @@ import 'package:curome/screens/caregiver/caregiver_tab.dart';
 class CaregiverHomeTab extends ConsumerWidget {
   final void Function(CaregiverTab tab) onNavigate;
   final VoidCallback onShowNotifications;
+  final Widget profileButton;
 
   const CaregiverHomeTab({
     super.key,
     required this.onNavigate,
     required this.onShowNotifications,
+    required this.profileButton,
   });
 
   @override
@@ -51,6 +53,8 @@ class CaregiverHomeTab extends ConsumerWidget {
                     ],
                   ),
                 ),
+                profileButton,
+                const SizedBox(width: 8),
                 NotificationBell(
                   unreadCount: state.unreadCountFor(Role.caregiver),
                   onTap: onShowNotifications,
@@ -59,8 +63,7 @@ class CaregiverHomeTab extends ConsumerWidget {
                 IconButton(
                   onPressed: () {
                     state.logout();
-                    Navigator.pushNamedAndRemoveUntil(
-                        context, '/login', (r) => false);
+                    Navigator.pushNamedAndRemoveUntil(context, '/login', (r) => false);
                   },
                   icon: const Icon(Icons.logout, color: Colors.white, size: 20),
                 ),

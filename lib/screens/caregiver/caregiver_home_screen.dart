@@ -37,11 +37,6 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen> {
         child: Stack(
           children: [
             _buildTab(),
-            Positioned(
-              top: 8,
-              right: 10,
-              child: _profileButton(context),
-            ),
             if (_showNotifications) _notificationsOverlay(state),
           ],
         ),
@@ -66,10 +61,11 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen> {
   Widget _buildTab() {
     switch (_tab) {
       case CaregiverTab.home:
-        return CaregiverHomeTab(
-          onNavigate: _goTo,
-          onShowNotifications: () => setState(() => _showNotifications = true),
-        );
+      return CaregiverHomeTab(
+        onNavigate: _goTo,
+        onShowNotifications: () => setState(() => _showNotifications = true),
+        profileButton: _profileButton(context),
+      );
       case CaregiverTab.appointments:
         return CaregiverAppointmentsTab(
             onBack: () => _goTo(CaregiverTab.home));
